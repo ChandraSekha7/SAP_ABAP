@@ -1,0 +1,41 @@
+REPORT ZINF_INSERT_REPORT.
+*REPORT ZINF_INSERT.
+TABLES: ZINF_MATERIAL, ZINF_GROUPS, ZINF_TYPE.
+
+DATA: ls_material TYPE ZINF_MATERIAL.
+
+PARAMETERS:
+  p_matnr TYPE ZINF_MATERIAL-MATERIAL_NUMBER OBLIGATORY,
+  p_maktx TYPE ZINF_MATERIAL-MATERIAL_DESCRIPTION OBLIGATORY ,
+  p_matkl TYPE ZINF_GROUPS-MATERIAL_TYPE OBLIGATORY ,
+  p_mtart TYPE ZINF_TYPE-MATERIAL_TYPE OBLIGATORY  .
+
+START-OF-SELECTION.
+  " Check if material number already exists
+  SELECT SINGLE * FROM ZINF_MATERIAL WHERE MATERIAL_NUMBER = p_matnr.
+  IF sy-subrc = 0.
+    WRITE: / 'Material Number already exists. Enter a different Material Number.'.
+    EXIT.
+  ENDIF.
+
+  " Display F4 help for material group and material type
+*  PARAMETERS: p_mtkl TYPE ZINF_GROUPS-MATERIAL_TYPE OBLIGATORY MATCHCODE OBJECT MATERIAL_GROUP,
+*              p_mart TYPE ZINF_TYPE-MATERIAL_TYPE OBLIGATORY MATCHCODE OBJECT MATERIAL_TYPE.
+
+  " Insert data into ZINF_MATERIAL table
+  ls_material-MATERIAL_NUMBER = p_matnr.
+  ls_material-MATERIAL_DESCRIPTION = p_maktx.
+  ls_material-MATERIAL_GROUP = p_matkl.
+  ls_material-MATERIAL_TYPE = p_mtart.
+
+ " You may set other fields here as needed.
+
+  " Insert data into ZINF_MATERIAL table
+  INSERT INTO ZINF_MATERIAL VALUES ls_material.
+
+  " Display a success message
+  WRITE: / 'Data inserted successfully.',
+         / 'Material Number:', ls_material-MATERIAL_NUMBER,
+         / 'Material Description:', ls_material-MATERIAL_DESCRIPTION,
+         / 'Material Group:', ls_material-MATERIAL_GROUP,
+         / 'Material Type:', ls_material-MATERIAL_TYPE.

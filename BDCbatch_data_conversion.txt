@@ -1,0 +1,401 @@
+ABAP Code for  the Reference.
+
+Below is the ABAP BDC Code for reference using  example for t-code : FCH5 -Cheque Creation
+
+*******************************************************
+* DATA DECLARATIONS
+*******************************************************
+
+Types: BEGIN OF TY_FILE,
+VBLNR TYPE PAYR-VBLNR, "PAYMENT DOC NO
+ZBUKR TYPE PAYR-ZBUKR, "COMPANY CODE
+GJAHR TYPE PAYR-GJAHR, "FISCAL YEAR
+HBKID TYPE PAYR-HBKID, "HOUSE BANK
+HKTID TYPE PAYR-HKTID, "ACCOUNT ID
+CHECT TYPE PAYR-CHECT, "CHECK NUMBER
+END OF TY_FILE.
+
+DATA : IT_FILE TYPE TABLE OF TY_FILE,
+WA_FILE TYPE TY_FILE.
+
+DATA : IT_BDCDATA TYPE TABLE OF BDCDATA,
+WA_BDCDATA TYPE BDCDATA.
+
+DATA : IT_BDCMSGCOLL TYPE TABLE OF BDCMSGCOLL,
+WA_BDCMSGCOLL TYPE BDCMSGCOLL.
+
+DATA V_RWBTR TYPE WRBTR.
+
+DATA V_FILE TYPE STRING.
+
+DATA : V_MODE(1) TYPE C.  " A - DISPLAY ALL SCREENS
+" E - DISPLAY ERRORS
+" N - NO SCREENS
+DATA : V_MSG_TXT(100) TYPE C.
+
+*******************************************************
+*      SELECTION SCREEN
+*******************************************************
+
+SELECTION-SCREEN: BEGIN OF BLOCK B1 WITH FRAME TITLE TEXT-000.
+
+PARAMETERS: P_FILE  TYPE IBIPPARMS-PATH.
+
+SELECTION-SCREEN: END OF BLOCK B1.
+
+SELECTION-SCREEN: BEGIN OF BLOCK B4 WITH FRAME TITLE TEXT-004.
+
+PARAMETERS: V_BOX1 AS CHECKBOX.
+
+SELECTION-SCREEN: END OF BLOCK B4.
+
+SELECTION-SCREEN: BEGIN OF BLOCK B2 WITH FRAME TITLE TEXT-001.
+
+PARAMETERS: RB_A RADIOBUTTON GROUP G2
+, RB_E RADIOBUTTON GROUP G2
+, RB_N RADIOBUTTON GROUP G2
+.
+SELECTION-SCREEN: END OF BLOCK B2.
+
+SELECTION-SCREEN: BEGIN OF BLOCK B3 WITH FRAME TITLE TEXT-002.
+
+PARAMETERS: P_SNAME(12) TYPE C.
+
+SELECTION-SCREEN: END OF BLOCK B3.
+
+*INITIALIZATION.
+* LOOP AT SCREEN.
+*    IF SCREEN-NAME ='P_SNAME'.
+*       SCREEN-INPUT = 0.
+*       MODIFY SCREEN.
+*    ENDIF.
+*  ENDLOOP.
+
+AT SELECTION-SCREEN ON VALUE-REQUEST FOR P_FILE.
+
+PERFORM F4_FILENAME.
+
+*******************************************************
+*      AT SELECTION-SCREEN OUTPUT
+*******************************************************
+
+AT SELECTION-SCREEN OUTPUT.
+
+IF V_BOX1 = 'X'.
+LOOP AT SCREEN.
+IF SCREEN-NAME ='RB_A' OR
+SCREEN-NAME ='RB_E' OR
+SCREEN-NAME ='RB_N'  .
+SCREEN-INPUT = 0.
+MODIFY SCREEN.
+ENDIF.
+ENDLOOP.
+ELSE.
+LOOP AT SCREEN.
+IF SCREEN-NAME ='P_SNAME'.
+SCREEN-INPUT = 0.
+MODIFY SCREEN.
+ENDIF.
+ENDLOOP.
+ENDIF.
+
+*********************************************************
+*RAIO BUTTONS PROGRAMING FOR V_MODE " A - DISPLAY ALL SCREENS
+" E - DISPLAY ERRORS
+" N - NO SCREENS
+
+*******************************************************
+*  START-OF-SELECTION
+*******************************************************
+
+START-OF-SELECTION.
+IF RB_A = 'X'.
+V_MODE = 'A'.
+ELSEIF RB_E = 'X' .
+V_MODE = 'E'.
+ELSEIF RB_N = 'X'.
+V_MODE = 'N'.
+ENDIF.
+
+*******************************************************
+*  UPLOAD FILE
+*******************************************************
+
+V_FILE = P_FILE.
+IF V_FILE IS NOT INITIAL.
+
+CALL FUNCTION 'GUI_UPLOAD'
+EXPORTING
+FILENAME                      = V_FILE
+*   FILETYPE                      = 'ASC'
+HAS_FIELD_SEPARATOR           = 'X'
+*   HEADER_LENGTH                 = 0
+*   READ_BY_LINE                  = 'X'
+*   DAT_MODE                      = ' '
+*   CODEPAGE                      = ' '
+*   IGNORE_CERR                   = ABAP_TRUE
+*   REPLACEMENT                   = '#'
+*   CHECK_BOM                     = ' '
+*   VIRUS_SCAN_PROFILE            =
+*   NO_AUTH_CHECK                 = ' '
+* IMPORTING
+*   FILELENGTH                    =
+*   HEADER                        =
+TABLES
+DATA_TAB                      = IT_FILE
+* CHANGING
+*   ISSCANPERFORMED               = ' '
+EXCEPTIONS
+FILE_OPEN_ERROR               = 1
+FILE_READ_ERROR               = 2
+NO_BATCH                      = 3
+GUI_REFUSE_FILETRANSFER       = 4
+INVALID_TYPE                  = 5
+NO_AUTHORITY                  = 6
+UNKNOWN_ERROR                 = 7
+BAD_DATA_FORMAT               = 8
+HEADER_NOT_ALLOWED            = 9
+SEPARATOR_NOT_ALLOWED         = 10
+HEADER_TOO_LONG               = 11
+UNKNOWN_DP_ERROR              = 12
+ACCESS_DENIED                 = 13
+DP_OUT_OF_MEMORY              = 14
+DISK_FULL                     = 15
+DP_TIMEOUT                    = 16
+OTHERS                        = 17.
+
+IF SY-SUBRC = 0.
+*****
+*****CASE SY-SUBRC.
+*****  WHEN 5.
+*****    MESSAGE 'INVALID_TYPE ' TYPE 'E'.
+*****  WHEN OTHERS.
+*****    MESSAGE 'ERROR' TYPE 'E'.
+*****ENDCASE.
+*****
+*****ELSE.
+MESSAGE 'FILE SUCCESSFUL UPLOADED' TYPE 'I'.
+
+ENDIF.
+
+********************************************************
+*  BDC PROGRAM CALL - SESSION METHOD
+********************************************************
+
+IF V_BOX1 = 'X'.
+
+CALL FUNCTION 'BDC_OPEN_GROUP'
+EXPORTING
+*         CLIENT                    = SY-MANDT
+*         DEST                      = FILLER8
+GROUP                     = P_SNAME
+*         HOLDDATE                  = FILLER8
+KEEP                      = 'X'      "TO KEEP SUCCESSFULLY PROCESSED SESSION.
+USER                      = SY-UNAME
+*         RECORD                    = FILLER1
+*         PROG                      = SY-CPROG
+*         DCPFM                     = '%'
+*         DATFM                     = '%'
+*       IMPORTING
+*         QID                       =
+*       EXCEPTIONS
+*         CLIENT_INVALID            = 1
+*         DESTINATION_INVALID       = 2
+*         GROUP_INVALID             = 3
+*         GROUP_IS_LOCKED           = 4
+*         HOLDDATE_INVALID          = 5
+*         INTERNAL_ERROR            = 6
+*         QUEUE_ERROR               = 7
+*         RUNNING                   = 8
+*         SYSTEM_LOCK_ERROR         = 9
+*         USER_INVALID              = 10
+*         OTHERS                    = 11
+.
+IF SY-SUBRC <> 0.
+*       Implement suitable error handling here
+ENDIF.
+
+LOOP AT IT_FILE INTO WA_FILE.
+
+SELECT SINGLE WRBTR INTO V_RWBTR FROM BSEG
+WHERE BELNR = WA_FILE-VBLNR.
+
+PERFORM BDC_DYNPRO USING 'SAPMFCHK' '0500'.
+PERFORM BDC_FIELD USING 'PAYR-VBLNR' WA_FILE-VBLNR.
+PERFORM BDC_FIELD USING 'PAYR-ZBUKR' WA_FILE-ZBUKR.
+PERFORM BDC_FIELD USING 'PAYR-GJAHR' WA_FILE-GJAHR.
+PERFORM BDC_FIELD USING 'PAYR-HBKID' WA_FILE-HKTID.
+PERFORM BDC_FIELD USING 'PAYR-CHECT' WA_FILE-CHECT.
+PERFORM BDC_FIELD USING 'PAYR-CHECT' WA_FILE-CHECT.
+
+*      *************************************************
+PERFORM BDC_DYNPRO USING 'SAPMFCHK' '0501'.
+PERFORM BDC_FIELD USING 'PAYR-RWBTR' V_RWBTR.
+PERFORM BDC_FIELD USING 'BDC_OKCODE' '=UPDA'.
+
+*      *************************************************
+*      REFRESH IT_BDCDATA.
+
+ENDLOOP.
+*      *********************************************************
+*       FUNCTIONAL MODULE TO INSERT DATA
+*      *********************************************************
+
+CALL FUNCTION 'BDC_INSERT'
+EXPORTING
+TCODE                  = 'FCH5'
+*         POST_LOCAL             = NOVBLOCAL
+*         PRINTING               = NOPRINT
+*         SIMUBATCH              = ' '
+*         CTUPARAMS              = ' '
+TABLES
+DYNPROTAB              = IT_BDCDATA
+*       EXCEPTIONS
+*         INTERNAL_ERROR         = 1
+*         NOT_OPEN               = 2
+*         QUEUE_ERROR            = 3
+*         TCODE_INVALID          = 4
+*         PRINTING_INVALID       = 5
+*         POSTING_INVALID        = 6
+*         OTHERS                 = 7
+.
+IF SY-SUBRC = 0.
+MESSAGE 'SESSION SUCCESSFUL CREATED' TYPE 'I'.
+ENDIF.
+
+CALL FUNCTION 'BDC_CLOSE_GROUP'
+*       EXCEPTIONS
+*         NOT_OPEN          = 1
+*         QUEUE_ERROR       = 2
+*         OTHERS            = 3
+.
+IF SY-SUBRC <> 0.
+*        MESSAGE 'SESSION & CREATED SUCCESSFULLY' TYPE 'I'.
+ENDIF.
+
+ELSE.
+
+*******************************************************
+*  BDC PROGRAM CALL - NORMAL METHOD
+*******************************************************
+
+LOOP AT IT_FILE INTO WA_FILE.
+
+SELECT SINGLE WRBTR INTO V_RWBTR FROM BSEG
+WHERE BELNR = WA_FILE-VBLNR.
+
+*          SAPMFCHK,0500,X,
+*             PAYR-VBLNR = WA_FILE-VBLNR,
+*             PAYR-ZBUKR = WA_FILE-ZBUKR,
+*             PAYR-GJAHR = WA_FILE-GJAHR,
+*             PAYR-HBKID = WA_FILE-HBKID,
+*             PAYR-HKTID = WA_FILE-HKTID,
+*             PAYR-CHECT = WA_FILE-CHECT.
+*
+*          SAPMFCHK,0501,X
+*             PAYR-RWBTR = V_RWBTR.
+*      *************************************************
+PERFORM BDC_DYNPRO USING 'SAPMFCHK' '0500'.
+PERFORM BDC_FIELD USING 'PAYR-VBLNR' WA_FILE-VBLNR.
+PERFORM BDC_FIELD USING 'PAYR-ZBUKR' WA_FILE-ZBUKR.
+PERFORM BDC_FIELD USING 'PAYR-GJAHR' WA_FILE-GJAHR.
+PERFORM BDC_FIELD USING 'PAYR-HBKID' WA_FILE-HKTID.
+PERFORM BDC_FIELD USING 'PAYR-CHECT' WA_FILE-CHECT.
+PERFORM BDC_FIELD USING 'PAYR-CHECT' WA_FILE-CHECT.
+
+*      *************************************************
+PERFORM BDC_DYNPRO USING 'SAPMFCHK' '0501'.
+PERFORM BDC_FIELD USING 'PAYR-RWBTR' V_RWBTR.
+PERFORM BDC_FIELD USING 'BDC_OKCODE' '=UPDA'.
+
+*      *************************************************
+
+CALL TRANSACTION 'FCH5' USING IT_BDCDATA MODE V_MODE
+MESSAGES INTO IT_BDCMSGCOLL.  " A - DISPLAY ALL SCREENS
+REFRESH IT_BDCDATA.                                " E - DISPLAY ERRORS
+" N - NO SCREENS
+*      *ERROR MESSAGE HANDLING*****IF_'N'**********************************************************
+
+*       IF SY-SUBRC = 0.
+*         WRITE : / 'CHEQUE',WA_FILE-CHECT,'FOR PAYT DOC',WA_FILE-VBLNR,'IS ASSIGNED.' COLOR 1.
+*       ELSE.
+*         WRITE : / 'CHEQUE',WA_FILE-CHECT,'TO PAYT DOC',WA_FILE-VBLNR,'IS NOT ASSIGNED.' COLOR 3.
+*       ENDIF.
+
+ENDLOOP.
+
+*      **ERROR HANDLING USING FM 'FORMAT_MESSAGE'***************************************************
+
+LOOP AT IT_BDCMSGCOLL INTO WA_BDCMSGCOLL.
+CALL FUNCTION 'FORMAT_MESSAGE'
+EXPORTING
+ID              = SY-MSGID
+LANG            = '-D'
+NO              = SY-MSGNO
+V1              = SY-MSGV1
+V2              = SY-MSGV2
+V3              = SY-MSGV3
+V4              = SY-MSGV4
+IMPORTING
+MSG             = V_MSG_TXT
+EXCEPTIONS
+NOT_FOUND       = 1
+OTHERS          = 2
+.
+IF SY-SUBRC = 0.
+WRITE: / V_MSG_TXT COLOR 2.
+ENDIF.
+
+ENDLOOP.
+ENDIF.
+ELSE.
+MESSAGE 'FILE PATH NOT FOUND' TYPE 'E'.
+ENDIF.
+
+***ERROR HANDLING USING METHOD/CLASS 'FORMAT_MESSAGE'***
+
+**LOOP AT IT_BDCMSGCOLL INTO WA_BDCMSGCOLL.
+**Cl_demo_output+>display(it_bdcmsgcoll).
+**
+**ENDLOOP.
+
+INCLUDE ZFCH5_CHECK_DYNPRO.
+
+*&---------------------------------------------------------------------*
+*&  Include  ZFCH5_CHECK_DYNPRO
+*&---------------------------------------------------------------------*
+FORM BDC_FIELD USING FP_FNAM FP_FVAL.
+CLEAR  WA_BDCDATA.
+WA_BDCDATA-FNAM = FP_FNAM.
+WA_BDCDATA-FVAL = FP_FVAL.
+APPEND WA_BDCDATA TO IT_BDCDATA.
+ENDFORM.
+
+INCLUDE ZFCH5_CHECK_FIELDS.
+
+*&---------------------------------------------------------------------*
+*&  Include  ZFCH5_CHECK_FIELDS
+*&---------------------------------------------------------------------*
+FORM BDC_DYNPRO USING FP_PROG FP_DYNPRO.
+CLEAR  WA_BDCDATA.
+WA_BDCDATA-PROGRAM = FP_PROG.
+WA_BDCDATA-DYNPRO = FP_DYNPRO.
+WA_BDCDATA-DYNBEGIN = 'X'. "NEW SCREEN
+APPEND WA_BDCDATA TO IT_BDCDATA.
+ENDFORM.
+
+INCLUDE Z_F4_FILENAME.
+
+*&---------------------------------------------------------------------*
+*&  Include  Z_F4_FILENAME
+*&---------------------------------------------------------------------*
+FORM F4_FILENAME.
+CALL FUNCTION 'F4_FILENAME'
+EXPORTING
+PROGRAM_NAME        = SYST-CPROG
+DYNPRO_NUMBER       = SYST-DYNNR
+FIELD_NAME          = 'P_FILE'
+IMPORTING
+FILE_NAME           = P_FILE
+.
+ENDFORM.

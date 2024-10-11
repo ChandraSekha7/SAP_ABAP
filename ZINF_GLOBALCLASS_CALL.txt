@@ -1,0 +1,60 @@
+REPORT ZINF_GLOBALCLASS_CALL.
+
+DATA: go_alv_helper TYPE REF TO ZINF_GLOBAL_ALV_HELPER,
+      gt_field_catalog TYPE TABLE OF lvc_s_fcat,
+      gt_data TYPE TABLE OF ZINF_GLOBAL_ALV_HELPER=>ZINF_MATERIAL_STRUCTURE,
+      lo_alv TYPE REF TO cl_salv_table.
+
+START-OF-SELECTION.
+
+  " Create an instance of the global helper class
+  CREATE OBJECT go_alv_helper.
+
+  " Populate field catalog
+ go_alv_helper->POPULATE_FIELD_CATALOG(
+    CHANGING
+      MT_FIELDCAT = gt_field_catalog
+  ).
+
+  " Fetch data
+ go_alv_helper->FETCH_DATA(
+    CHANGING
+      ET_DATA = gt_data
+  ).
+
+  " Check if field catalog and data are populated
+  IF gt_field_catalog IS NOT INITIAL AND gt_data IS NOT INITIAL.
+    " Call ALV display method with the retrieved field catalog and data
+    CALL METHOD cl_salv_table=>factory
+*     (EXPORTING
+*
+*
+*        container_name            = 'container1'
+*      IMPORTING
+*        r_salv_table              = DATA(lo_salv_model_services)
+*      CHANGING
+*        t_table                   = gt_data
+*    ).
+      IMPORTING
+        r_salv_table = lo_alv
+      CHANGING
+        t_table      = gt_data.
+
+    " Set the field catalog
+*    lo_alv->set_screen_status( pfstatus = 'menu' ).
+
+    " Display the ALV grid
+    lo_alv->display( ).
+  ELSE.
+    " Handle error or provide a message if the data is not available
+    WRITE: / 'Error: No data available for ALV display'.
+  ENDIF.
+*&---------------------------------------------------------------------*
+*& Module STATUS_0250 OUTPUT
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+MODULE status_0250 OUTPUT.
+* SET PF-STATUS 'xxxxxxxx'.
+* SET TITLEBAR 'xxx'.
+ENDMODULE.

@@ -1,0 +1,83 @@
+REPORT ZINF_RCURD.
+
+
+
+
+TABLES: ZINF_MATERIAL.
+
+TYPES: BEGIN OF ty_material,
+         MATERIAL_NUMBER TYPE ZINF_MATERIAL-MATERIAL_NUMBER,
+         MATERIAL_DESCRIPTION TYPE ZINF_MATERIAL-MATERIAL_DESCRIPTION,
+         MATERIAL_GROUP TYPE ZINF_MATERIAL-MATERIAL_GROUP,
+         MATERIAL_TYPE TYPE ZINF_MATERIAL-MATERIAL_TYPE,
+         CREATED_DATE TYPE ZINF_MATERIAL-CREATED_DATE,
+         CREATED_TIME TYPE ZINF_MATERIAL-CREATED_TIME,
+       END OF ty_material.
+
+DATA: lt_materials TYPE TABLE OF ZINF_MATERIAL,
+      ls_material   TYPE ZINF_MATERIAL.
+
+DATA: gv_operation TYPE char1,
+      gv_matnr     TYPE ZINF_MATERIAL-MATERIAL_NUMBER,
+      gv_descn     TYPE ZINF_MATERIAL-MATERIAL_DESCRIPTION,
+      gv_group     TYPE ZINF_MATERIAL-MATERIAL_GROUP,
+      gv_type      TYPE ZINF_MATERIAL-MATERIAL_TYPE,
+      gv_date      TYPE ZINF_MATERIAL-CREATED_DATE,
+      gv_time      TYPE ZINF_MATERIAL-CREATED_TIME.
+
+PARAMETERS: g_create TYPE abap_bool RADIOBUTTON GROUP op,
+            g_update TYPE abap_bool RADIOBUTTON GROUP op,
+            g_delete TYPE abap_bool RADIOBUTTON GROUP op.
+
+START-OF-SELECTION.
+
+  " Fetch all records
+  SELECT * FROM ZINF_MATERIAL INTO TABLE lt_materials.
+
+AT SELECTION-SCREEN OUTPUT.
+  " Display checkboxes for each operation
+  WRITE: / 'Select an operation (C: Create, U: Update, D: Delete):'.
+
+  " Display input fields based on the selected operation
+  IF g_create = abap_true.
+    CLEAR gv_matnr.
+    CLEAR gv_descn.
+    CLEAR gv_group.
+    CLEAR gv_type.
+    CLEAR gv_date.
+    CLEAR gv_time.
+  ENDIF.
+
+  " Initialize global variable based on selected operation
+  IF g_create = abap_true.
+   gv_operation = 'C'.
+  ELSEIF g_update = abap_true.
+    gv_operation = 'U'.
+  ELSEIF g_delete = abap_true.
+  gv_operation = 'D'.
+  ENDIF.
+
+AT SELECTION-SCREEN.
+
+  CASE sy-dynnr.
+    WHEN 100.
+      " Handle Create operation
+      IF g_create = abap_true.
+        LOOP AT SCREEN.
+          IF SCREEN-GROUP1 = 'DATA'.
+            SCREEN-INPUT = 1.
+            MODIFY SCREEN.
+          ENDIF.
+        ENDLOOP.
+      ENDIF.
+
+      " Handle Update operation
+      IF g_update = abap_true AND gv_matnr IS INITIAL.
+        MESSAGE 'Please enter a valid Material Number for Update operation' TYPE 'E'.
+      ENDIF.
+
+      " Handle Delete operation
+      IF g_delete = abap_true AND gv_matnr IS INITIAL.
+        MESSAGE 'Please enter a valid Material Number for Delete operation' TYPE 'E'.
+      ENDIF.
+  ENDCASE.

@@ -1,0 +1,296 @@
+PROGRAM zinf_mod_pool.
+DATA NUM.
+
+
+
+
+
+
+
+CLASS lcl_alv DEFINITION.
+  PUBLIC SECTION.
+    METHODS: event_doubleclick FOR EVENT double_click OF cl_gui_alv_grid
+      IMPORTING e_row e_column.
+    METHODS: event_onf4help FOR EVENT onf4 OF cl_gui_alv_grid.
+    METHODS: event_cust_toolbar FOR EVENT toolbar OF cl_gui_alv_grid
+      IMPORTING e_object.
+    METHODS: event_usercommand FOR EVENT user_command OF cl_gui_alv_grid
+      IMPORTING e_ucomm.
+
+ENDCLASS.
+CLASS lcl_alv IMPLEMENTATION.
+  METHOD event_doubleclick.
+    BREAK-POINT.
+  ENDMETHOD.
+  METHOD event_onf4help.
+    BREAK-POINT.
+  ENDMETHOD.
+
+  METHOD event_cust_toolbar.
+*    BREAK-POINT.
+    DATA: wa_cust_buttons TYPE stb_button.
+    wa_cust_buttons-butn_type = 0.
+    wa_cust_buttons-function = 'EXIT'.
+    wa_cust_buttons-text = 'Close'.
+    APPEND wa_cust_buttons TO e_object->mt_toolbar.
+  ENDMETHOD.
+
+  METHOD event_usercommand.
+    BREAK-POINT.
+  ENDMETHOD.
+ENDCLASS.
+
+DATA: obj_ccont TYPE REF TO cl_gui_custom_container,
+      obj_alv   TYPE REF TO cl_gui_alv_grid.
+
+
+
+
+
+DATA: okcode_150 TYPE sy-ucomm.
+
+*&---------------------------------------------------------------------*
+*& Module STATUS_0150 OUTPUT
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+MODULE status_0150 OUTPUT.
+*  SET PF-STATUS 'xxxxxxxx'.
+*  SET TITLEBAR 'xxx'.
+*YES = 'X'.
+
+TABLES ZINF_MATERIAL.
+
+
+SELECT SINGLE * from ZINF_MATERIAL where material_number = zinf_material-material_number.
+ENDMODULE.
+*&---------------------------------------------------------------------*
+*&      Module  USER_COMMAND_0150  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE user_command_0150 INPUT.
+
+  IF okcode_150 = 'FCT_OK'.
+
+    CALL SCREEN 200.
+
+*  ELSEIF okcode_150 = 'FCT_EXIT'.
+
+
+*    LEAVE PROGRAM.
+  ENDIF.
+ENDMODULE.
+*&---------------------------------------------------------------------*
+*& Module STATUS_0200 OUTPUT
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+*&---------------------------------------------------------------------*
+*& Module STATUS_0200 OUTPUT
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+MODULE status_0200 OUTPUT.
+  SET PF-STATUS 'MENU'.
+* SET TITLEBAR 'xxx'.
+  DATA: it_alv_design TYPE lvc_t_fcat,
+        wa_alv_design TYPE LINE OF lvc_t_fcat.
+
+  DATA: wa_exclude TYPE LINE OF ui_functions,
+        it_exclude TYPE ui_functions.
+  TYPES: BEGIN OF ty_result,
+           material_number      TYPE zinf_material-material_number,
+           material_description TYPE zinf_material-material_description,
+           material_group       TYPE zinf_material-material_group,
+           material_type        TYPE zinf_material-material_type,
+           created_date         TYPE zinf_material-created_date,
+           created_time         TYPE zinf_material-created_time,
+           group_description    TYPE zinf_groups-description,
+           type_description     TYPE zinf_type-description,
+         END OF ty_result.
+  DATA lt_result TYPE TABLE OF ty_result.
+
+  SELECT m~material_number,
+           m~material_description,
+           m~material_group,
+           m~material_type,
+           m~created_date,
+           m~created_time,
+           g~description AS group_description,
+           t~description AS type_description
+      INTO CORRESPONDING FIELDS OF TABLE @lt_result
+      FROM zinf_material AS m
+      INNER JOIN zinf_groups AS g ON m~material_group = g~material_type
+      INNER JOIN zinf_type AS t ON m~material_type = t~material_type.
+  CLEAR wa_alv_design.
+  wa_alv_design-row_pos = 1.
+  wa_alv_design-col_pos = 1.
+  wa_alv_design-fieldname = 'MATERIAL_NUMBER'.
+  wa_alv_design-tabname = 'IT_RESULT'.
+  wa_alv_design-outputlen = '10'.
+  wa_alv_design-scrtext_m = 'Material Number'.
+  APPEND wa_alv_design TO it_alv_design.
+  CLEAR wa_alv_design.
+  wa_alv_design-row_pos = 1.
+  wa_alv_design-col_pos = 2.
+  wa_alv_design-fieldname = 'MATERIAL_DESCRIPTION'.
+  wa_alv_design-tabname = 'IT_RESULT'.
+  wa_alv_design-outputlen = '10'.
+  wa_alv_design-scrtext_m = 'Material Description'.
+  APPEND wa_alv_design TO it_alv_design.
+  CLEAR wa_alv_design.
+  wa_alv_design-row_pos = 1.
+  wa_alv_design-col_pos = 3.
+  wa_alv_design-fieldname = 'MATERIAL_GROUP'.
+  wa_alv_design-tabname = 'IT_RESULT'.
+  wa_alv_design-outputlen = '7'.
+  wa_alv_design-edit = 'X'.
+  wa_alv_design-f4availabl = 'X'.
+  wa_alv_design-scrtext_m = 'Material Group'.
+  APPEND wa_alv_design TO it_alv_design.
+  CLEAR wa_alv_design.
+  wa_alv_design-row_pos = 1.
+  wa_alv_design-col_pos = 4.
+  wa_alv_design-fieldname = 'MATERIAL_TYPE'.
+  wa_alv_design-tabname = 'IT_RESULT'.
+  wa_alv_design-outputlen = '7'.
+  wa_alv_design-edit = 'X'.
+  wa_alv_design-f4availabl = 'X'.
+  wa_alv_design-scrtext_m = 'Material Type'.
+  APPEND wa_alv_design TO it_alv_design.
+  CLEAR wa_alv_design.
+  wa_alv_design-row_pos = 1.
+  wa_alv_design-col_pos = 5.
+  wa_alv_design-fieldname = 'CREATED_DATE'.
+  wa_alv_design-tabname = 'IT_RESULT'.
+  wa_alv_design-outputlen = '10'.
+  wa_alv_design-scrtext_m = 'Created Date'.
+  APPEND wa_alv_design TO it_alv_design.
+  CLEAR wa_alv_design.
+  wa_alv_design-row_pos = 1.
+  wa_alv_design-col_pos = 6.
+  wa_alv_design-fieldname = 'CREATED_TIME'.
+  wa_alv_design-tabname = 'IT_RESULT'.
+  wa_alv_design-outputlen = '10'.
+  wa_alv_design-scrtext_m = 'Created Time'.
+  APPEND wa_alv_design TO it_alv_design.
+  CLEAR wa_alv_design.
+  wa_alv_design-row_pos = 1.
+  wa_alv_design-col_pos = 7.
+  wa_alv_design-fieldname = 'GROUP_DESCRIPTION'.
+  wa_alv_design-tabname = 'IT_RESULT'.
+  wa_alv_design-outputlen = '20'.
+  wa_alv_design-scrtext_m = 'Group Description'.
+  APPEND wa_alv_design TO it_alv_design.
+  CLEAR wa_alv_design.
+  wa_alv_design-row_pos = 1.
+  wa_alv_design-col_pos = 8.
+  wa_alv_design-fieldname = ' TYPE_DESCRIPTION'.
+  wa_alv_design-tabname = ' IT_RESULT'.
+  wa_alv_design-outputlen = '20'.
+  wa_alv_design-scrtext_m = 'Type Description'.
+  APPEND wa_alv_design TO it_alv_design.
+
+* Step1
+*Create a ref for  CL_GUI_CUSTOM_CONTAINER
+  CREATE OBJECT obj_ccont
+    EXPORTING
+      container_name = 'CONCUST'.
+*Step 2.
+* Create a ref for CL_GUI_ALV_GRID.
+  CREATE OBJECT obj_alv
+    EXPORTING
+      i_parent = obj_ccont.
+
+  wa_exclude = cl_gui_alv_grid=>mc_fc_print.
+  APPEND wa_exclude TO it_exclude.
+  wa_exclude = cl_gui_alv_grid=>mc_fc_subtot.
+  APPEND wa_exclude TO it_exclude.
+*Step 3
+*Display ALV by calling a method
+  DATA(obj_alv_localobj) = NEW lcl_alv( ).
+  DATA: it_f4fields TYPE lvc_t_f4,
+        wa_f4fields TYPE LINE OF lvc_t_f4.
+  wa_f4fields-fieldname = 'MATERIAL_GROUP'.
+  wa_f4fields-register = 'X'.
+  APPEND  wa_f4fields TO it_f4fields.
+  CLEAR wa_f4fields.
+
+  wa_f4fields-fieldname = 'MATERIAL_TYPE'.
+  wa_f4fields-register = 'X'.
+  APPEND  wa_f4fields TO it_f4fields.
+  CLEAR wa_f4fields.
+  CALL METHOD obj_alv->register_f4_for_fields
+    EXPORTING
+      it_f4 = it_f4fields.
+
+  SET HANDLER obj_alv_localobj->event_doubleclick FOR obj_alv.
+  SET HANDLER obj_alv_localobj->event_onf4help FOR obj_alv.
+
+  SET HANDLER obj_alv_localobj->event_cust_toolbar FOR obj_alv.
+  SET HANDLER obj_alv_localobj->event_usercommand FOR obj_alv.
+
+  CALL METHOD obj_alv->set_table_for_first_display
+    EXPORTING
+      i_structure_name     = 'TY_RESULT'
+      it_toolbar_excluding = it_exclude
+    CHANGING
+      it_outtab            = lt_result
+      it_fieldcatalog      = it_alv_design
+*     it_sort              =
+*     it_filter            =
+    .
+
+ENDMODULE.
+*&---------------------------------------------------------------------*
+*&      Module  USER_COMMAND_0200  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE user_command_0200 INPUT.
+
+  DATA okcode_200 TYPE sy-ucomm.
+  IF okcode_200 = 'MENU'.
+    LEAVE PROGRAM.
+  ENDIF.
+
+ENDMODULE.
+*&---------------------------------------------------------------------*
+*&      Module  EXIT_200  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE exit_200 INPUT.
+*DATA okcode_200 TYPE sy-ucomm.
+  IF okcode_200 = 'EXITS'.
+    LEAVE PROGRAM.
+  ENDIF.
+
+ENDMODULE.
+*&---------------------------------------------------------------------*
+*&      Module  EXIT_150  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE exit_150 INPUT.
+  IF okcode_150 = 'FCT_EXIT'.
+    LEAVE PROGRAM.
+  ENDIF.
+
+ENDMODULE.
+*&---------------------------------------------------------------------*
+*&      Module  DATA_VALIDATION  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE data_validation INPUT.
+
+*  IF okcode_150 = 'FCT_OK'.
+*    IF NUM <> '1'.
+*CALL SCREEN 200.
+*ELSEIF
+*      MESSAGE 'Only Material Number below 100 to be used'  TYPE 'E'.
+*    ENDIF.
+*ENDIF.
+ENDMODULE.

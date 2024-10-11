@@ -1,0 +1,302 @@
+REPORT zinf_alv_data_manipulation.
+TYPE-POOLS : slis.
+
+TABLES: zinf_material, zinf_groups, zinf_type.
+
+
+
+TYPES: BEGIN OF ty_zinf_material,
+         material_number      TYPE zinf_material-material_number,
+         material_description TYPE zinf_material-material_description,
+         material_group       TYPE zinf_material-material_group,
+         material_type        TYPE zinf_material-material_type,
+         created_date         TYPE zinf_material-created_date,
+         created_time         TYPE zinf_material-created_time,
+       END OF ty_zinf_material.
+
+TYPES: BEGIN OF ty_zinf_groups,
+         material_group    TYPE zinf_groups-material_type,
+         group_description TYPE zinf_groups-description,
+       END OF ty_zinf_groups.
+
+TYPES: BEGIN OF ty_zinf_type,
+         material_type    TYPE zinf_type-material_type,
+         type_description TYPE zinf_type-description,
+       END OF ty_zinf_type.
+
+DATA: lt_zinf_material TYPE TABLE OF ty_zinf_material,
+      lt_zinf_groups   TYPE TABLE OF ty_zinf_groups,
+      lt_zinf_type     TYPE TABLE OF ty_zinf_type.
+
+
+DATA: wa_zinf_material TYPE ty_zinf_material,
+      wa_zinf_groups   TYPE ty_zinf_groups,
+      wa_zinf_type     TYPE ty_zinf_type.
+
+
+
+TYPES: BEGIN OF ty_result,
+         material_number      TYPE zinf_material-material_number,
+         material_description TYPE zinf_material-material_description,
+         material_group       TYPE zinf_material-material_group,
+         material_type        TYPE zinf_material-material_type,
+         created_date         TYPE zinf_material-created_date,
+         created_time         TYPE zinf_material-created_time,
+         group_description    TYPE zinf_groups-description,
+         type_description     TYPE zinf_type-description,
+
+         cellcolor            TYPE lvc_t_scol,
+       END OF ty_result.
+
+DATA: lt_result  TYPE TABLE OF ty_result,
+      wa_result  TYPE ty_result,
+      gt_result  TYPE TABLE OF ty_result,
+      lt_changes TYPE TABLE OF ty_result.
+
+DATA: it_alv_design TYPE slis_t_fieldcat_alv,
+      wa_alv_design TYPE slis_fieldcat_alv,
+      wa_alv_layout TYPE slis_layout_alv.
+*      lt_sort_info  TYPE slis_t_sortinfo_alv.
+
+START-OF-SELECTION.
+  PERFORM f_fetch_data.
+  PERFORM f_build_field_catalog.
+  PERFORM f_build_layout.
+  PERFORM f_display_alv_report.
+
+
+
+
+
+
+
+
+
+
+
+
+* Subroutine to fetch data from ZINF_MATERIAL, ZINF_GROUPS, and ZINF_TYPE
+FORM f_fetch_data.
+  SELECT m~material_number,
+         m~material_description,
+         m~material_group,
+         m~material_type,
+         m~created_date,
+         m~created_time,
+         g~description AS group_description,
+         t~description AS type_description
+    INTO CORRESPONDING FIELDS OF TABLE @lt_result
+    FROM zinf_material AS m
+    INNER JOIN zinf_groups AS g ON m~material_group = g~material_type
+    INNER JOIN zinf_type AS t ON m~material_type = t~material_type.
+
+  APPEND LINES OF lt_result TO gt_result[].
+ENDFORM.
+
+* Subroutine to build field catalog
+FORM f_build_field_catalog.
+  CLEAR it_alv_design.
+
+  " Checkbox field with col_pos
+
+  APPEND VALUE #( fieldname = 'CUSTOM_BUTTON' seltext_m = 'Custom Button' ) TO it_alv_design. " Add custom button
+
+  APPEND VALUE #( fieldname = 'MATERIAL_NUMBER' seltext_m = 'Material Number' outputlen = 20 ) TO it_alv_design.
+  APPEND VALUE #( fieldname = 'MATERIAL_DESCRIPTION' seltext_m = 'Material Description' outputlen = 30 ) TO it_alv_design.
+
+  " Attach zinf_groups to MATERIAL_GROUP for F4 help
+  APPEND VALUE #( fieldname = 'MATERIAL_GROUP' outputlen = 25 ref_tabname = 'ZINF_GROUPS' ref_fieldname = 'MATERIAL_TYPE' edit = 'X' ) TO it_alv_design.
+
+  " Attach zinf_type to MATERIAL_TYPE for F4 help
+  APPEND VALUE #( fieldname = 'MATERIAL_TYPE' outputlen = 25 ref_tabname = 'ZINF_TYPE' ref_fieldname = 'MATERIAL_TYPE' edit = 'X' ) TO it_alv_design.
+
+  APPEND VALUE #( fieldname = 'CREATED_DATE' seltext_m = 'Created Date' outputlen = 20 ) TO it_alv_design.
+  APPEND VALUE #( fieldname = 'CREATED_TIME' seltext_m = 'Created Time' outputlen = 20 ) TO it_alv_design.
+  APPEND VALUE #( fieldname = 'GROUP_DESCRIPTION' tabname = 'LT_RESULT' outputlen = '30' seltext_m = 'Group Description' ) TO it_alv_design.
+  APPEND VALUE #( fieldname = 'TYPE_DESCRIPTION' tabname = 'LT_RESULT' outputlen = '40' seltext_m = 'Type Description' ) TO it_alv_design.
+*  APPEND VALUE #( fieldname = 'MATERIAL_NUMBER_COLOR' outputlen = 10 ) TO it_alv_design.
+
+ENDFORM.
+
+*ENDFORM.
+
+* Subroutine to build layout
+FORM f_build_layout.
+  CLEAR wa_alv_layout.
+  wa_alv_layout-zebra = 'X'.
+* wa_alv_layout-coltab_fieldname = 'CELLCOLOR'.
+*  wa_alv_layout-box_fieldname = 'CBOX'.
+ENDFORM.
+
+* Subroutine to display ALV report
+FORM f_display_alv_report.
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+    EXPORTING
+      i_callback_program       = sy-repid
+      i_callback_pf_status_set = 'PF_STATUS_SET'
+      i_callback_user_command  = 'USER_COMMAND'
+      it_fieldcat              = it_alv_design
+      is_layout                = wa_alv_layout
+*     it_sort                  = lt_sort_info
+    TABLES
+      t_outtab                 = lt_result.
+ENDFORM.
+
+
+
+
+
+FORM user_command USING p_ucomm LIKE sy-ucomm p_selfield TYPE slis_selfield.
+  DATA: lv_material_number TYPE string,
+        lv_info_message    TYPE string,
+        lv_clicked_index   TYPE i.
+
+  CASE p_ucomm.
+    WHEN '&DATA_SAVE'.
+      PERFORM f_save_data.
+      PERFORM f_display_alv_report.
+
+    WHEN '&IC1'.
+      IF p_selfield-fieldname = 'MATERIAL_GROUP'.
+        PERFORM double_click_event.
+      ENDIF.
+    WHEN '&Co'.
+      IF p_selfield-fieldname = 'CUSTOM_BUTTON'.
+        lv_clicked_index = p_selfield-tabindex.
+        PERFORM set_color.
+      ENDIF.
+
+    WHEN '&POP'.
+      IF p_selfield-fieldname = 'CUSTOM_BUTTON'.
+        lv_clicked_index = p_selfield-tabindex.
+
+        " Change the color of the MATERIAL_NUMBER field
+
+
+        READ TABLE lt_result INDEX lv_clicked_index INTO DATA(ls_selected_row).
+
+        IF sy-subrc = 0.
+          lv_material_number = ls_selected_row-material_number.
+
+          IF lv_material_number IS NOT INITIAL.
+            CONCATENATE 'Material Number: ' lv_material_number ':selected'
+                        INTO lv_info_message.
+
+            MESSAGE lv_info_message TYPE 'I'.
+          ENDIF.
+        ENDIF.
+      ENDIF.
+
+*    WHEN '&MSG1'. " Assuming you want to handle color change separately
+*      IF p_selfield-fieldname = 'CUSTOM_BUTTON'.
+*        lv_clicked_index = p_selfield-tabindex.
+*
+*        " Change the color of the MATERIAL_NUMBER field
+*        PERFORM set_color USING lv_clicked_index.
+*      ENDIF.
+
+  ENDCASE.
+
+  p_selfield-refresh = abap_true.
+ENDFORM.
+
+
+* PF status set subroutine
+FORM pf_status_set USING extab TYPE slis_t_extab.
+  SET PF-STATUS 'STANDARD'.
+ENDFORM.
+
+* Subroutine to save data
+FORM f_save_data.
+  DATA:lt_update TYPE TABLE OF Zinf_material,
+       ls_update TYPE Zinf_material.
+
+
+  LOOP AT lt_result INTO wa_result.
+    READ TABLE gt_result WITH KEY
+        material_number = wa_result-material_number
+        material_group = wa_result-material_group
+        material_type  = wa_result-material_type
+        TRANSPORTING NO FIELDS.
+
+    IF sy-subrc <> 0.
+*      APPEND wa_result TO lt_changes.
+
+
+      MOVE-CORRESPONDING wa_result TO ls_update.
+      APPEND ls_update TO lt_update.
+      CLEAR ls_update.
+    ENDIF.
+
+
+
+
+
+  ENDLOOP.
+
+  " Modify zinf_material using all entries from lt_changes
+  MODIFY zinf_material FROM TABLE lt_update.
+
+  " Clear lt_changes after modifying zinf_material
+*  CLEAR lt_changes[].
+
+  " Commit the changes to the database
+  COMMIT WORK.
+
+
+ENDFORM.
+
+
+
+FORM double_click_event.
+
+  LOOP AT lt_result INTO wa_result.
+    READ TABLE gt_result WITH KEY
+        material_number = wa_result-material_number
+        material_group  = wa_result-material_group
+
+        TRANSPORTING NO FIELDS.
+
+    IF sy-subrc <> 0.
+      " Field values have been modified
+
+      " Assuming material_group is modified, fetch the new group_description
+      SELECT SINGLE description
+        INTO wa_result-group_description
+        FROM zinf_groups
+        WHERE material_type = wa_result-material_group.
+
+      " Update GROUP_DESCRIPTION in lt_result
+      MODIFY lt_result FROM wa_result TRANSPORTING group_description
+        WHERE material_number = wa_result-material_number.
+
+    ENDIF.
+  ENDLOOP.
+ENDFORM.
+
+
+
+
+FORM set_color .
+
+  DATA  : ls_cellcolor TYPE lvc_s_scol,
+          lv_index     TYPE sy-tabix.
+ wa_alv_layout-coltab_fieldname = 'CELLCOLOR'.
+
+  LOOP AT lt_result INTO DATA(ls_res).
+
+    lv_index = sy-tabix.
+
+    ls_cellcolor-fname = 'MATERIAL_NUMBER'.
+    ls_cellcolor-color-col = sy-tabix.
+    ls_cellcolor-color-int = '1'.
+    ls_cellcolor-color-inv = '0'.
+    APPEND ls_cellcolor TO ls_res-cellcolor.
+
+    MODIFY lt_result FROM ls_res INDEX lv_index TRANSPORTING cellcolor.
+
+
+  ENDLOOP.
+
+
+ENDFORM.

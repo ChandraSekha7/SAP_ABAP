@@ -1,0 +1,57 @@
+REPORT ZINF_CURD_OPERATION.
+TABLES: ZINF_MATERIAL, ZINF_GROUPS, ZINF_TYPE.
+
+DATA: ls_material TYPE ZINF_MATERIAL.
+
+PARAMETERS:
+  p_matnr TYPE ZINF_MATERIAL-MATERIAL_NUMBER OBLIGATORY,
+  p_maktx TYPE ZINF_MATERIAL-MATERIAL_DESCRIPTION OBLIGATORY,
+  p_matkl TYPE ZINF_GROUPS-MATERIAL_TYPE OBLIGATORY,
+  p_mtart TYPE ZINF_TYPE-MATERIAL_TYPE OBLIGATORY,
+  p_radio TYPE sy-ucomm.
+
+SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE text-001.
+PARAMETERS: rb_int RADIOBUTTON GROUP r1,
+            rb_disay RADIOBUTTON GROUP r1.
+SELECTION-SCREEN END OF BLOCK b1.
+
+START-OF-SELECTION.
+
+CASE p_radio.
+  WHEN 'RB_INSERT'.
+    PERFORM insert_data.
+  WHEN 'RB_DISPLAY'.
+    PERFORM display_data.
+ENDCASE.
+
+FORM insert_data.
+  " Check if material number already exists
+  SELECT SINGLE * FROM ZINF_MATERIAL WHERE MATERIAL_NUMBER = p_matnr.
+  IF sy-subrc = 0.
+    WRITE: / 'Material Number already exists. Enter a different Material Number.'.
+    EXIT.
+  ENDIF.
+
+  " Insert data into ZINF_MATERIAL table
+  ls_material-MATERIAL_NUMBER = p_matnr.
+  ls_material-MATERIAL_DESCRIPTION = p_maktx.
+  ls_material-MATERIAL_GROUP = p_matkl.
+  ls_material-MATERIAL_TYPE = p_mtart.
+
+  " You may set other fields here as needed.
+
+  " Insert data into ZINF_MATERIAL table
+  INSERT INTO ZINF_MATERIAL VALUES ls_material.
+
+  " Display a success message
+  WRITE: / 'Data inserted successfully.',
+         / 'Material Number:', ls_material-MATERIAL_NUMBER,
+         / 'Material Description:', ls_material-MATERIAL_DESCRIPTION,
+         / 'Material Group:', ls_material-MATERIAL_GROUP,
+         / 'Material Type:', ls_material-MATERIAL_TYPE.
+ENDFORM.
+
+FORM display_data.
+  " Add logic to display data based on your requirements
+  WRITE: / 'Display logic goes here.'.
+ENDFORM.

@@ -1,0 +1,1715 @@
+----------------------------------------------*
+*& Report ZMM_PURCHASE_REQUISITION
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+
+REPORT zmm_purchase_req_report.
+
+"selection screen design
+TABLES: eban,ekko,ekpo,mara,t001w.
+DATA lt_tab.
+SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE TEXT-001.
+
+  SELECT-OPTIONS:
+                 so_pr_da FOR eban-creationdate,
+                 so_pr_nm FOR eban-banfn,
+                 so_D_dat FOR ekko-bedat,
+                 so_po_nm FOR ekpo-ebeln,
+                 so_re_nm FOR ekko-ausnr,
+                 so_p_grp FOR eban-ekgrp NO INTERVALS,
+                 so_pr_ps FOR eban-statu NO INTERVALS,
+                 so_pr_dc FOR eban-bsart  NO INTERVALS,
+                 so_po_dc FOR ekko-bsart  NO INTERVALS,
+                 so_mat FOR mara-mtart  NO INTERVALS,
+                 so_plant FOR t001w-werks NO INTERVALS.
+  SKIP 2.
+
+  PARAMETERS:
+             ck_show TYPE abap_bool AS CHECKBOX.
+SELECTION-SCREEN END OF BLOCK b1.
+
+
+AT SELECTION-SCREEN.
+  IF so_pr_da[] IS  INITIAL AND
+     so_pr_nm[] IS  INITIAL AND
+   so_D_dat[] IS  INITIAL AND
+      so_po_nm[] IS INITIAL AND
+  so_re_nm[] IS INITIAL .
+
+    DATA:m_error TYPE string.
+    m_error = 'please enter at least one field in the (pr creation date or pr number or po number or po date or rfq no' .
+    MESSAGE m_error TYPE 'S'.
+
+
+  ENDIF.
+
+
+AT SELECTION-SCREEN ON VALUE-REQUEST FOR so_pr_dc-low.
+**Validation for the selection Screen.
+  SELECT
+      bstyp,
+      bsart,
+      batxt
+       FROM t161t
+       INTO TABLE @DATA(lk_T161t)
+       WHERE  bstyp = 'B' AND spras = 'E'.
+
+  CALL FUNCTION 'F4IF_INT_TABLE_VALUE_REQUEST'
+    EXPORTING
+      retfield        = 'BSART'
+      dynpprog        = sy-repid
+      dynpnr          = sy-dynnr
+      dynprofield     = 'SO_PR_DC-LOW'
+      value_org       = 'S'
+    TABLES
+      value_tab       = lk_T161t
+    EXCEPTIONS
+      parameter_error = 1
+      no_values_found = 2
+      OTHERS          = 3.
+
+  IF sy-subrc <> 0.
+
+    MESSAGE i799(f9) WITH TEXT-002.
+
+  ENDIF.
+
+AT SELECTION-SCREEN ON VALUE-REQUEST FOR so_po_dc-low.
+**Validation for the selection Screen.
+  SELECT
+      bstyp,
+      bsart,
+      batxt
+       FROM t161t
+       INTO TABLE @DATA(lm_T161t)
+       WHERE  bstyp = 'F' AND spras = 'E'.
+
+  CALL FUNCTION 'F4IF_INT_TABLE_VALUE_REQUEST'
+    EXPORTING
+      retfield        = 'BSART'
+      dynpprog        = sy-repid
+      dynpnr          = sy-dynnr
+      dynprofield     = 'SO_PO_DC-LOW'
+      value_org       = 'S'
+    TABLES
+      value_tab       = lm_T161t
+    EXCEPTIONS
+      parameter_error = 1
+      no_values_found = 2
+      OTHERS          = 3.
+
+  IF sy-subrc <> 0.
+
+    MESSAGE i799(f9) WITH TEXT-002.
+
+  ENDIF.
+
+AT SELECTION-SCREEN ON VALUE-REQUEST FOR so_pr_ps-low.
+**Validation for the selection Screen.
+  SELECT
+       domvalue_l,
+       ddtext
+       FROM dd07v
+       INTO TABLE @DATA(ls_dd07v)
+  WHERE domname = 'BANST' AND ddlanguage = 'E' AND domvalue_l IN ('N', 'A', 'B').
+
+  CALL FUNCTION 'F4IF_INT_TABLE_VALUE_REQUEST'
+    EXPORTING
+      retfield        = 'DOMVALUE_L'
+      dynpprog        = sy-repid
+      dynpnr          = sy-dynnr
+      dynprofield     = 'SO_PR_PS-LOW'
+      value_org       = 'S'
+    TABLES
+      value_tab       = ls_dd07v
+    EXCEPTIONS
+      parameter_error = 1
+      no_values_found = 2
+      OTHERS          = 3.
+
+  IF sy-subrc <> 0.
+
+    MESSAGE i799(f9) WITH TEXT-002.
+
+  ENDIF.
+
+
+*check weather user entered valid pr processing input or not .
+  IF so_pr_ps[] IS NOT INITIAL.
+
+    DATA:  lv_error TYPE string.
+    SELECT
+       domvalue_l
+       FROM dd07v
+       INTO TABLE @DATA(lt_dd07v)
+    WHERE domname = 'BANST' AND ddlanguage = 'E' AND domvalue_l IN @so_pr_ps.
+
+    LOOP AT so_pr_ps INTO DATA(wa_so_pr_ps).
+
+      READ TABLE lt_dd07v WITH KEY domvalue_l = wa_so_pr_ps-low  TRANSPORTING  NO FIELDS.
+      IF sy-subrc <> 0.
+        lv_error = |Invalid value { wa_so_pr_ps-low } for Processing Status|.
+        MESSAGE lv_error TYPE 'E'.
+      ENDIF.
+    ENDLOOP.
+  ENDIF.
+
+*check weather user entered valid Document type input or not.
+
+  IF so_po_dc[] IS NOT INITIAL.
+    DATA:ls_error TYPE string.
+
+    SELECT
+      bstyp,
+      bsart
+       FROM t161
+       INTO TABLE @DATA(lt_T161)
+    WHERE bsart IN @so_po_dc AND bstyp = 'F'.
+
+    LOOP AT so_po_dc INTO DATA(wa_so_po_dc).
+
+      READ TABLE lt_T161 WITH KEY bsart = wa_so_po_dc-low  TRANSPORTING  NO FIELDS.
+      IF sy-subrc <> 0.
+        ls_error = |Invalid value { wa_so_po_dc-low  } for Purchasing Document Type|.
+        MESSAGE ls_error TYPE 'E'.
+      ENDIF.
+    ENDLOOP.
+
+
+
+  ENDIF.
+
+  IF so_pr_dc[] IS NOT INITIAL.
+    DATA:lm_error TYPE string.
+
+    SELECT
+      bsart
+       FROM t161
+       INTO TABLE @DATA(lm_T161)
+    WHERE bsart IN @so_pr_dc AND bstyp = 'B'.
+
+    LOOP AT so_pr_dc INTO DATA(wa_so_pr_dc).
+
+      READ TABLE lt_T161 WITH KEY bsart = wa_so_pr_dc-low  TRANSPORTING  NO FIELDS.
+      IF sy-subrc <> 0.
+        lm_error = |Invalid value { wa_so_pr_dc-low  } for Purchasing Document Type|.
+        MESSAGE lm_error TYPE 'E'.
+      ENDIF.
+    ENDLOOP.
+  ENDIF.
+
+*check weather user entered valid material input or not.
+  IF so_mat[] IS NOT INITIAL.
+    DATA:lk_error TYPE string.
+
+    SELECT
+      mtart
+       FROM t134
+    INTO TABLE @DATA(lt_T134) WHERE mtart IN @so_mat.
+
+    LOOP AT so_mat INTO DATA(wa_so_mat).
+
+      READ TABLE lt_T134 WITH KEY mtart = wa_so_mat-low  TRANSPORTING  NO FIELDS.
+      IF sy-subrc <> 0.
+        lk_error = |Invalid value { wa_so_mat-low  } for Material Type|.
+        MESSAGE lk_error TYPE 'E'.
+      ENDIF.
+    ENDLOOP.
+
+
+
+  ENDIF.
+
+* check weather user entered valid material input or not.
+  IF so_p_grp[] IS NOT INITIAL.
+    DATA:lp_error TYPE string.
+
+    SELECT
+      ekgrp
+       FROM t024
+    INTO TABLE @DATA(lt_T024) WHERE ekgrp IN @so_p_grp.
+
+    LOOP AT so_p_grp INTO DATA(wa_so_p_grp).
+
+      READ TABLE lt_T024 WITH KEY ekgrp = wa_so_p_grp-low  TRANSPORTING  NO FIELDS.
+      IF sy-subrc <> 0.
+        lp_error = |Invalid value { wa_so_p_grp-low  } for purchasing Group|.
+        MESSAGE lp_error TYPE 'E'.
+      ENDIF.
+    ENDLOOP.
+
+
+
+  ENDIF.
+
+
+
+
+  "declaration of  the class
+CLASS lcl_alv DEFINITION.
+  PUBLIC SECTION.
+    "declaration of methods for fieldcatlog and fetch_purchase_reqisition_data
+    METHODS:  build_fieldcat,
+      fetch_all_data,
+      generic_data,
+      alv_final_internal_table,
+      show_grid,
+      meins_output IMPORTING iv_meins        TYPE meins
+                   RETURNING VALUE(rv_meins) TYPE meins.
+    DATA:
+      mt_fieldcat TYPE lvc_t_fcat,
+      obj_ccont   TYPE REF TO cl_gui_custom_container,
+      obj_alv     TYPE REF TO cl_gui_alv_grid.
+
+
+    "declaration of final table type.
+    TYPES: BEGIN OF ty_purchase_info,
+             pr_number               TYPE eban-banfn,
+             pr_created_date         TYPE eban-badat,
+             pr_requisitioner        TYPE adrp-name_text,
+             pr_item_number          TYPE eban-bnfpo,
+             material_code           TYPE mara-matnr,
+             material_name           TYPE makt-maktx,
+             pr_quantity             TYPE eban-menge,
+             pr_uom                  TYPE eban-meins,
+             processing_status       TYPE eban-statu,
+             processing_status_d     TYPE dd07v-ddtext,
+             pr_final_release_date   TYPE eban-frgdt,
+             pr_modified_date        TYPE eban-erdat,
+             rfq_number              TYPE ekko-ausnr,
+             rfq_create_date         TYPE ekko-aedat,
+             rfq_final_approval_date TYPE swwwihead-wi_aed,
+             po_number               TYPE ekpo-ebeln,
+             po_create_date          TYPE ekpo-creationdate,
+             po_final_release_date   TYPE ekpo-prdat,
+             po_quantity             TYPE ekpo-menge,
+             po_uom                  TYPE ekpo-meins,
+             vendor_number           TYPE lfa1-lifnr,
+             vendor_name             TYPE lfa1-name1,
+             grn_no                  TYPE ekbe-belnr,
+             grn_date                TYPE ekbe-budat,
+             po_doc                  TYPE ekko-bsart,
+             material_type           TYPE mara-mtart,
+             pr_date                 TYPE eban-creationdate,
+             po_date                 TYPE eban-bedat,
+             p_group                 TYPE eban-ekgrp,
+             pr_doc                  TYPE eban-bsart,
+             doc_date                TYPE ekko-bedat,
+             plant                   TYPE t001w-werks,
+           END OF ty_purchase_info.
+    "Declaration of eban table type
+    TYPES: BEGIN OF  ty_final_x,
+
+             pr_no                   TYPE eban-banfn,
+             doc_type                TYPE eban-bsart,
+             pr_processing           TYPE eban-statu,
+             item                    TYPE eban-bnfpo,
+             pr_created_date         TYPE eban-badat,
+             pr_quantity             TYPE eban-menge,
+             uom                     TYPE eban-meins,
+             pr_final_release        TYPE eban-frgdt,
+             pr_modified             TYPE eban-erdat,
+             pr_requisitioner        TYPE eban-afnam,
+             po_no                   TYPE eban-ebeln,
+             po_item                 TYPE eban-ebelp,
+             pr_date                 TYPE eban-creationdate,
+             pr_doc                  TYPE eban-bsart,
+             p_group                 TYPE eban-ekgrp,
+             po_date                 TYPE eban-bedat,
+             plant                   TYPE eban-werks,
+             material_no             TYPE eban-matnr,
+             material_code           TYPE mara-matnr,
+             material_type           TYPE mara-mtart,
+             po_number               TYPE ekpo-ebeln,
+             po_item_po              TYPE ekpo-ebelp,
+             po_create_date          TYPE ekpo-creationdate,
+
+             po_quantity             TYPE ekpo-menge,
+             po_uom                  TYPE ekpo-meins,
+             po_material_code        TYPE ekpo-matnr,
+             pr_req_no               TYPE ekpo-banfn,
+             pr_item_no              TYPE ekpo-bnfpo,
+             supplier_rfq            TYPE ekpo-anfnr,
+             items                   TYPE ekpo-anfps,
+             doc_category            TYPE ekpo-bstyp,
+             rfq_no                  TYPE ekko-ebeln,
+             rfq_create_date         TYPE ekko-aedat,
+*             rfq_final_approval_date TYPE ekko-lastchangedatetime,
+             supplier_no             TYPE ekko-lifnr,
+             po_doc                  TYPE ekko-bsart,
+             doc_date                TYPE ekko-bedat,
+             rfq_doc_category        TYPE ekko-bstyp,
+             rfq_final_approval_date TYPE swwwihead-wi_aed,
+             po_final_release_date   TYPE swwwihead-wi_aed,
+             material_name           TYPE eban-txz01,
+           END OF ty_final_x.
+*    TYPES: BEGIN OF  ty_final_y,
+*
+*             po_number               TYPE ekpo-ebeln,
+*             po_item_po              TYPE ekpo-ebelp,
+*             po_create_date          TYPE ekpo-creationdate,
+*
+*             po_quantity             TYPE ekpo-menge,
+*             po_uom                  TYPE ekpo-meins,
+*             po_material_code        TYPE ekpo-matnr,
+*             pr_req_no               TYPE ekpo-banfn,
+*             pr_item_no              TYPE ekpo-bnfpo,
+*             supplier_rfq            TYPE ekpo-anfnr,
+*             items                   TYPE ekpo-anfps,
+*             doc_category            TYPE ekpo-bstyp,
+*             material_code           TYPE mara-matnr,
+*             material_type           TYPE mara-mtart,
+*             pr_no                   TYPE eban-banfn,
+*             doc_type                TYPE eban-bsart,
+*             pr_processing           TYPE eban-statu,
+*             item                    TYPE eban-bnfpo,
+*             pr_created_date         TYPE eban-badat,
+*             pr_quantity             TYPE eban-menge,
+*             uom                     TYPE eban-meins,
+*             pr_final_release        TYPE eban-frgdt,
+*             pr_modified             TYPE eban-erdat,
+*             pr_requisitioner        TYPE eban-afnam,
+*             po_no                   TYPE eban-ebeln,
+*             po_item                 TYPE eban-ebelp,
+*             pr_date                 TYPE eban-creationdate,
+*             pr_doc                  TYPE eban-bsart,
+*             p_group                 TYPE eban-ekgrp,
+*             po_date                 TYPE eban-bedat,
+*             plant                   TYPE eban-werks,
+*             material_no             TYPE eban-matnr,
+*             rfq_no                  TYPE ekko-ebeln,
+*             rfq_create_date         TYPE ekko-aedat,
+**             rfq_final_approval_date TYPE ekko-lastchangedatetime,
+*             supplier_no             TYPE ekko-lifnr,
+*             po_doc                  TYPE ekko-bsart,
+*             doc_date                TYPE ekko-bedat,
+*             po_doc_category         TYPE ekko-bstyp,
+*
+*
+*
+*             rfq_final_approval_date TYPE swwwihead-wi_aed,
+*             po_final_release_date   TYPE swwwihead-wi_aed,
+*
+*           END OF ty_final_y.
+
+
+    TYPES: BEGIN OF  ty_eban,
+             pr_no            TYPE eban-banfn,
+             doc_type         TYPE eban-bsart,
+             pr_processing    TYPE eban-statu,
+             item             TYPE eban-bnfpo,
+             pr_created_date  TYPE eban-badat,
+             pr_quantity      TYPE eban-menge,
+             uom              TYPE eban-meins,
+             pr_final_release TYPE eban-frgdt,
+             pr_modified      TYPE eban-erdat,
+             pr_requisitioner TYPE eban-afnam,
+             po_no            TYPE eban-ebeln,
+             po_item          TYPE eban-ebelp,
+             pr_date          TYPE eban-creationdate,
+             pr_doc           TYPE eban-bsart,
+             p_group          TYPE eban-ekgrp,
+             po_date          TYPE eban-bedat,
+             plant            TYPE eban-werks,
+             material_no      TYPE eban-matnr,
+
+           END OF ty_eban.
+
+    TYPES: BEGIN OF  ty_ekkos,
+             rfq_no           TYPE ekko-ebeln,
+             rfq_create_date  TYPE ekko-aedat,
+             supplier_no      TYPE ekko-lifnr,
+             po_doc           TYPE ekko-bsart,
+             doc_date         TYPE ekko-bedat,
+             rfq_doc_category TYPE ekko-bstyp,
+             pur_group        TYPE ekko-ekgrp,
+           END OF ty_ekkos.
+
+    TYPES: BEGIN OF  ty_ekpo,
+             po_number        TYPE ekpo-ebeln,
+             po_item_po       TYPE ekpo-ebelp,
+             po_create_date   TYPE ekpo-creationdate,
+             po_quantity      TYPE ekpo-menge,
+             po_uom           TYPE ekpo-meins,
+             po_material_code TYPE ekpo-matnr,
+             pr_req_no        TYPE ekpo-banfn,
+             pr_item_no       TYPE ekpo-bnfpo,
+             supplier_rfq     TYPE ekpo-anfnr,
+             items            TYPE ekpo-anfps,
+             doc_category     TYPE ekpo-bstyp,
+             plant            TYPE ekpo-werks,
+           END OF ty_ekpo.
+
+    TYPES:BEGIN OF tz_ekko,
+            pur_doc   TYPE ekko-ebeln,
+            pur_cat   TYPE ekko-bsart,
+            Doc_date  TYPE ekko-bedat,
+            doc_type  TYPE ekko-bstyp,
+            pur_group TYPE ekko-ekgrp,
+          END OF tz_ekko.
+
+
+
+
+
+    TYPES: BEGIN OF ty_mara,
+
+
+             material_code TYPE mara-matnr,
+             material_name TYPE makt-maktx,
+             material_type TYPE mara-mtart,
+           END OF ty_mara.
+
+    TYPES: BEGIN OF ts_mara,
+*             pr_material_code   TYPE ty_eban,
+             ekpo_material_code TYPE ekpo-matnr,
+             ekbe_material_code TYPE ekbe-matnr,
+           END OF ts_mara.
+
+    DATA: lt_mara TYPE TABLE OF ts_mara.
+
+    "declaration of ekko table type
+    TYPES:BEGIN OF ty_ekko,
+
+            sup_rfq_no      TYPE ekko-ebeln,
+            rfq_no          TYPE ekko-ausnr,
+            rfq_create_date TYPE ekko-aedat,
+*            rfq_final_approval_date TYPE ekko-lastchangedatetime,
+            supplier_no     TYPE ekko-lifnr,
+            po_doc          TYPE ekko-bsart,
+            doc_date        TYPE ekko-bedat,
+            doc_category    TYPE ekko-bstyp,
+
+          END OF ty_ekko.
+
+    TYPES:BEGIN OF tyy_ekko,
+
+            purchasing_doc   TYPE ekko-ebeln,
+            po_doc           TYPE ekko-bsart,
+            doc_date         TYPE ekko-bedat,
+            doc_category     TYPE ekko-bstyp,
+            purchasing_group TYPE ekko-ekgrp,
+          END OF tyy_ekko.
+
+    "declaration of lfa1  table type.
+    TYPES:BEGIN OF ty_lfa1,
+            vendor_number TYPE lfa1-lifnr,
+            vendor_name   TYPE lfa1-name1,
+          END OF ty_lfa1.
+    "declaration of ekbe  table type.
+    TYPES:BEGIN OF ty_ekbe,
+            grn_no        TYPE ekbe-belnr,
+            grn_date      TYPE ekbe-budat,
+            po_number     TYPE ekbe-ebeln,
+            material_code TYPE ekbe-matnr,
+            item          TYPE ekbe-ebelp,
+          END OF ty_ekbe.
+*     declaration of ekpo table type.
+    TYPES: BEGIN OF ky_ekpo,
+             rfq          TYPE ekpo-requestforquotation,
+             supplier_rfq TYPE ekpo-anfnr,
+             doc_category TYPE ekpo-bstyp,
+           END OF ky_ekpo.
+    DATA:kt_ekpo TYPE TABLE OF ky_ekpo.
+* Declaration of swwwihead table type.
+    TYPES: BEGIN OF ty_swwihead,
+             wi_id   TYPE  swwwihead-wi_id,
+             wi_stat TYPE swwwihead-wi_stat,
+             wi_aed  TYPE  swwwihead-wi_aed,
+             wi_text TYPE swwwihead-wi_text,
+           END OF ty_swwihead.
+* Declaration of range table.
+    TYPES: BEGIN OF ty_rfq_range,
+             sign   TYPE c LENGTH 1,
+             option TYPE c LENGTH 2,
+             low    TYPE ekko-ausnr,
+             high   TYPE ekko-ausnr,
+           END OF ty_rfq_range.
+
+    DATA: lt_rfq_range TYPE RANGE OF sww_witext,
+          ls_rfq_range LIKE LINE OF lt_rfq_range,
+          lm_rfq_range TYPE RANGE OF sww_witext,
+          ll_rfq_range LIKE LINE OF lt_rfq_range.
+*DATA: lt_rfq_range type table of
+*    DATA : lv_wi_text TYPE sww_witext.
+**Declaration of user21 table type.
+*    TYPES: BEGIN OF ty_user_info,
+*             bname      TYPE usr21-bname,
+*             persnumber TYPE usr21-persnumber,
+*             name_text  TYPE adrp-name_text,
+*           END OF ty_user_info.
+**Declaration of dd07v table type.
+*    TYPES: BEGIN OF ty_dd07v,
+*             processing_status      TYPE dd07v-domvalue_l,
+*             processing_description TYPE dd07v-ddtext,
+*           END OF ty_dd07v.
+
+    "defining the global internal tables
+    DATA:
+      gt_final_xy      TYPE TABLE OF ty_final_x,
+*      gt_final_y       TYPE TABLE OF ty_final_y,
+*      gt_final_x       TYPE TABLE OF ty_final_x,
+      gt_eban          TYPE TABLE OF ty_eban,
+      gt_ekkos         TYPE TABLE OF ty_ekkos,
+      gt_ekpo          TYPE TABLE OF ty_ekpo,
+      zz_ekko          TYPE TABLE OF tz_ekko,
+      gt_mara          TYPE TABLE OF ty_mara,
+      gt_ekko          TYPE TABLE OF ty_ekko,
+
+      gt_lfa1          TYPE TABLE OF ty_lfa1,
+      gt_ekbe          TYPE TABLE OF ty_ekbe,
+      gt_purchase_info TYPE TABLE OF ty_purchase_info,
+      lt_swwihead      TYPE TABLE OF ty_swwihead,
+*      user_info        TYPE TABLE OF ty_user_info,
+*      gt_dd07v         TYPE TABLE OF ty_dd07v,
+      gtt_ekko         TYPE TABLE OF tyy_ekko.
+ENDCLASS.
+*
+"Implementation of the class
+CLASS lcl_alv IMPLEMENTATION.
+
+
+   METHOD meins_output.
+
+*& Unit of Measure Internal to External Format.
+    CALL FUNCTION 'CONVERSION_EXIT_CUNIT_OUTPUT'
+      EXPORTING
+        input          = iv_meins
+      IMPORTING
+        output         = rv_meins
+      EXCEPTIONS
+        unit_not_found = 1
+        OTHERS         = 2 ##FM_SUBRC_OK.
+
+  ENDMETHOD.
+
+  "Implementation of method for fieldcatlog
+  METHOD build_fieldcat.
+    FIELD-SYMBOLS:
+    <fs_fcat> TYPE lvc_s_fcat.
+
+    APPEND INITIAL LINE TO mt_fieldcat ASSIGNING <fs_fcat>.
+    <fs_fcat>-fieldname = 'PR_NUMBER'.
+    <fs_fcat>-scrtext_s = 'PR No'.
+    <fs_fcat>-outputlen = '10'.
+    <fs_fcat>-no_zero    = 'X'.
+
+    APPEND INITIAL LINE TO mt_fieldcat ASSIGNING <fs_fcat>.
+    <fs_fcat>-fieldname = 'PR_DATE'.
+    <fs_fcat>-scrtext_l = 'PR Creation date'.
+    <fs_fcat>-outputlen = '10'.
+    APPEND INITIAL LINE TO mt_fieldcat ASSIGNING <fs_fcat>.
+    <fs_fcat>-fieldname = 'PR_REQUISITIONER'.
+    <fs_fcat>-scrtext_l = 'PR Requisitioner'.
+    <fs_fcat>-outputlen = '12'.
+    APPEND INITIAL LINE TO mt_fieldcat ASSIGNING <fs_fcat>.
+    <fs_fcat>-fieldname = 'PR_ITEM_NUMBER'.
+    <fs_fcat>-scrtext_l = 'PR Item No'.
+    <fs_fcat>-outputlen = '5'.
+    APPEND INITIAL LINE TO mt_fieldcat ASSIGNING <fs_fcat>.
+    <fs_fcat>-fieldname = 'MATERIAL_CODE'.
+    <fs_fcat>-scrtext_l = 'Material Code'.
+    <fs_fcat>-outputlen = '20'.
+    <fs_fcat>-no_zero    = 'X'.
+    APPEND INITIAL LINE TO mt_fieldcat ASSIGNING <fs_fcat>.
+    <fs_fcat>-fieldname = 'MATERIAL_NAME'.
+    <fs_fcat>-scrtext_l = 'Material Name'.
+    <fs_fcat>-outputlen = '20'.
+    APPEND INITIAL LINE TO mt_fieldcat ASSIGNING <fs_fcat>.
+    <fs_fcat>-fieldname = 'PR_QUANTITY'.
+    <fs_fcat>-scrtext_l = 'PR Quantity'.
+    <fs_fcat>-outputlen = '10'.
+    APPEND INITIAL LINE TO mt_fieldcat ASSIGNING <fs_fcat>.
+    <fs_fcat>-fieldname = 'PR_UOM'.
+    <fs_fcat>-scrtext_s = 'PR UOM'.
+    <fs_fcat>-outputlen = '3'.
+    APPEND INITIAL LINE TO mt_fieldcat ASSIGNING <fs_fcat>.
+    <fs_fcat>-fieldname = 'PROCESSING_STATUS'.
+    <fs_fcat>-scrtext_l = 'PR processing status'.
+    <fs_fcat>-outputlen = '1'.
+    <fs_fcat>-no_out = 'X'.
+    APPEND INITIAL LINE TO mt_fieldcat ASSIGNING <fs_fcat>.
+    <fs_fcat>-fieldname = 'PROCESSING_STATUS_D'.
+    <fs_fcat>-scrtext_l = 'PR processing status Description'.
+    <fs_fcat>-outputlen = '10'.
+    APPEND INITIAL LINE TO mt_fieldcat ASSIGNING <fs_fcat>.
+    <fs_fcat>-fieldname = 'PR_FINAL_RELEASE_DATE'.
+    <fs_fcat>-scrtext_l = 'PR Final release date'.
+    <fs_fcat>-outputlen = '10'.
+    APPEND INITIAL LINE TO mt_fieldcat ASSIGNING <fs_fcat>.
+    <fs_fcat>-fieldname = 'PR_MODIFIED_DATE'.
+    <fs_fcat>-scrtext_l = 'PR Modified Date'.
+    <fs_fcat>-outputlen = '10'.
+    APPEND INITIAL LINE TO mt_fieldcat ASSIGNING <fs_fcat>.
+    <fs_fcat>-fieldname = 'RFQ_NUMBER'.
+    <fs_fcat>-scrtext_m = 'RFQ No.'.
+    <fs_fcat>-outputlen = '10'.
+    APPEND INITIAL LINE TO mt_fieldcat ASSIGNING <fs_fcat>.
+    <fs_fcat>-fieldname = 'RFQ_CREATE_DATE'.
+    <fs_fcat>-scrtext_l = 'RFQ Creation Date'.
+    <fs_fcat>-outputlen = '10'.
+    APPEND INITIAL LINE TO mt_fieldcat ASSIGNING <fs_fcat>.
+    <fs_fcat>-fieldname = 'RFQ_FINAL_APPROVAL_DATE'.
+    <fs_fcat>-scrtext_l = 'RFQ Final approval date'.
+    <fs_fcat>-outputlen = '10'.
+    APPEND INITIAL LINE TO mt_fieldcat ASSIGNING <fs_fcat>.
+    <fs_fcat>-fieldname = 'PO_NUMBER'.
+    <fs_fcat>-scrtext_s = 'PO.No'.
+    <fs_fcat>-outputlen = '10'.
+    APPEND INITIAL LINE TO mt_fieldcat ASSIGNING <fs_fcat>.
+    <fs_fcat>-fieldname = 'PO_CREATE_DATE'.
+    <fs_fcat>-scrtext_l = 'Po Creation Date'.
+    <fs_fcat>-outputlen = '10'.
+    APPEND INITIAL LINE TO mt_fieldcat ASSIGNING <fs_fcat>.
+    <fs_fcat>-fieldname = 'PO_FINAL_RELEASE_DATE'.
+    <fs_fcat>-scrtext_l = 'Po Final Release date'.
+    <fs_fcat>-outputlen = '10'.
+    APPEND INITIAL LINE TO mt_fieldcat ASSIGNING <fs_fcat>.
+    <fs_fcat>-fieldname = 'PO_QUANTITY'.
+    <fs_fcat>-scrtext_m = 'Po Quantity'.
+    <fs_fcat>-outputlen = '10'.
+    APPEND INITIAL LINE TO mt_fieldcat ASSIGNING <fs_fcat>.
+    <fs_fcat>-fieldname = 'PO_UOM'.
+    <fs_fcat>-scrtext_s = 'PO.UOM'.
+    <fs_fcat>-outputlen = '10'.
+    APPEND INITIAL LINE TO mt_fieldcat ASSIGNING <fs_fcat>.
+    <fs_fcat>-fieldname = 'VENDOR_NUMBER'.
+    <fs_fcat>-scrtext_l = 'Supplier No.'.
+    <fs_fcat>-outputlen = '8'.
+    <fs_fcat>-no_zero    = 'X'.
+    APPEND INITIAL LINE TO mt_fieldcat ASSIGNING <fs_fcat>.
+    <fs_fcat>-fieldname = 'VENDOR_NAME'.
+    <fs_fcat>-scrtext_l = 'Supplier name'.
+    <fs_fcat>-outputlen = '14'.
+    APPEND INITIAL LINE TO mt_fieldcat ASSIGNING <fs_fcat>.
+    <fs_fcat>-fieldname = 'GRN_DATE'.
+    <fs_fcat>-scrtext_l = 'PO GRN Date'.
+    <fs_fcat>-outputlen = '6'.
+    APPEND INITIAL LINE TO mt_fieldcat ASSIGNING <fs_fcat>.
+    <fs_fcat>-fieldname = ' GRN_NO'.
+    <fs_fcat>-scrtext_l = 'PO GRN No'.
+    <fs_fcat>-outputlen = '10'.
+
+    APPEND INITIAL LINE TO mt_fieldcat ASSIGNING <fs_fcat>.
+    <fs_fcat>-fieldname = 'MATERIAL_TYPE'.
+    <fs_fcat>-scrtext_l = 'Material Type'.
+    <fs_fcat>-no_out = 'X'.
+    APPEND INITIAL LINE TO mt_fieldcat ASSIGNING <fs_fcat>.
+    <fs_fcat>-fieldname = 'PR_CREATED_DATE'.
+    <fs_fcat>-scrtext_m = 'pr date'.
+    <fs_fcat>-no_out = 'X'.
+
+    APPEND INITIAL LINE TO mt_fieldcat ASSIGNING <fs_fcat>.
+    <fs_fcat>-fieldname = 'P_GROUP'.
+    <fs_fcat>-scrtext_l = 'Purchase group'.
+    <fs_fcat>-no_out = 'X'.
+
+    APPEND INITIAL LINE TO mt_fieldcat ASSIGNING <fs_fcat>.
+    <fs_fcat>-fieldname = 'PR_DOC'.
+    <fs_fcat>-scrtext_l = 'Pr Doc Type'.
+    <fs_fcat>-no_out = 'X'.
+    APPEND INITIAL LINE TO mt_fieldcat ASSIGNING <fs_fcat>.
+    <fs_fcat>-fieldname = 'PO_DOC'.
+    <fs_fcat>-scrtext_l = 'Po Doc Type'.
+    <fs_fcat>-no_out = 'X'.
+
+    APPEND INITIAL LINE TO mt_fieldcat ASSIGNING <fs_fcat>.
+    <fs_fcat>-fieldname = 'DOC_DATE'.
+    <fs_fcat>-scrtext_m = 'Doc Date'.
+    <fs_fcat>-no_out = 'X'.
+    APPEND INITIAL LINE TO mt_fieldcat ASSIGNING <fs_fcat>.
+    <fs_fcat>-fieldname = 'PO_DATE'.
+    <fs_fcat>-scrtext_m = 'Po Date'.
+    <fs_fcat>-no_out = 'X'.
+    APPEND INITIAL LINE TO mt_fieldcat ASSIGNING <fs_fcat>.
+    <fs_fcat>-fieldname = 'PLANT'.
+    <fs_fcat>-scrtext_m = 'Plant'.
+    <fs_fcat>-no_out = 'X'.
+
+
+  ENDMETHOD.
+
+
+  "implementation of the method fetch_purchase_reqisition_data.
+  METHOD fetch_all_data.
+* if the pr_date or pr_number is entered.
+    IF so_pr_da[] IS NOT INITIAL OR so_pr_nm[] IS NOT INITIAL.
+
+      SELECT
+           banfn,
+           bsart,
+           statu,
+           bnfpo,
+           badat,
+           menge,
+           meins,
+           frgdt,
+           erdat,
+           afnam,
+           ebeln,
+           ebelp,
+           creationdate,
+           bsart,
+           ekgrp,
+           bedat,
+           werks,
+           matnr
+           FROM eban APPENDING TABLE @gt_eban
+           WHERE creationdate IN @so_pr_da AND
+                 banfn IN @so_pr_nm and
+                 bsart in @so_pr_dc and
+                 ekgrp in @so_p_grp and
+                 werks in @so_plant and
+                 statu in @so_pr_ps.
+        .
+
+*so_pr_da FOR eban-creationdate,
+*                 so_pr_nm FOR eban-banfn,
+*                 so_D_dat FOR ekko-bedat,
+*                 so_po_nm FOR ekpo-ebeln,
+*                 so_re_nm FOR ekko-ausnr,
+*                 so_p_grp FOR eban-ekgrp NO INTERVALS,
+*                 so_pr_ps FOR eban-statu NO INTERVALS,
+*                 so_pr_dc FOR eban-bsart  NO INTERVALS,
+*                 so_po_dc FOR ekko-bsart  NO INTERVALS,
+*                 so_mat FOR mara-mtart  NO INTERVALS,
+*                 so_plant FOR t001w-werks NO INTERVALS.
+      IF gt_eban IS NOT INITIAL.
+        SELECT
+              ebeln,
+              aedat,
+              lifnr,
+              bsart,
+              bedat,
+              bstyp
+              FROM ekko
+              APPENDING TABLE @gt_ekkos
+              FOR ALL ENTRIES IN @gt_eban
+              WHERE   ebeln = @gt_eban-po_no AND
+                     bstyp = 'R'.
+
+
+        SELECT
+            ebeln,
+           ebelp,
+           creationdate,
+           menge,
+           meins,
+           matnr,
+           banfn,
+           bnfpo,
+           anfnr,
+           anfps,
+           bstyp
+          FROM ekpo
+          APPENDING TABLE @gt_ekpo
+          FOR ALL ENTRIES IN @gt_eban
+          WHERE  ebeln = @gt_eban-po_no
+          AND bstyp = 'F'.
+      ENDIF.
+
+
+
+      DATA: wa_final_xy TYPE ty_final_x.
+      LOOP AT gt_eban INTO DATA(wa_eban).
+        wa_final_xy-pr_no = wa_eban-pr_no.
+        wa_final_xy-pr_processing = wa_eban-pr_processing.
+        wa_final_xy-item = wa_eban-item.
+        wa_final_xy-pr_date = wa_eban-pr_date.
+        wa_final_xy-pr_quantity = wa_eban-pr_quantity.
+*        wa_final_xy-uom = wa_eban-uom.
+    wa_final_xy-uom  = meins_output( iv_meins = wa_eban-uom ).
+        wa_final_xy-pr_final_release = wa_eban-pr_final_release.
+        wa_final_xy-pr_modified = wa_eban-pr_modified.
+        wa_final_xy-pr_requisitioner = wa_eban-pr_requisitioner.
+        wa_final_xy-pr_doc = wa_eban-pr_doc.
+        wa_final_xy-p_group = wa_eban-p_group.
+        wa_final_xy-plant = wa_eban-plant.
+        wa_final_xy-material_no = wa_eban-material_no.
+        READ TABLE gt_ekkos INTO DATA(wa_ekkos) WITH KEY rfq_no = wa_eban-po_no .
+        IF sy-subrc IS INITIAL.
+          wa_final_xy-rfq_no = wa_ekkos-rfq_no.
+          wa_final_xy-rfq_create_date = wa_ekkos-rfq_create_date.
+          wa_final_xy-po_doc = wa_ekkos-po_doc.
+          wa_final_xy-doc_date = wa_ekkos-doc_date.
+          wa_final_xy-rfq_doc_category = wa_ekkos-rfq_doc_category.
+
+        ENDIF.
+        READ TABLE gt_ekpo INTO DATA(wa_ekpo) WITH KEY po_number = wa_eban-po_no.
+        IF sy-subrc IS INITIAL.
+          wa_final_xy-po_number = wa_ekpo-po_number.
+          wa_final_xy-po_item_po = wa_ekpo-po_item_po.
+          wa_final_xy-po_create_date = wa_ekpo-po_create_date.
+          wa_final_xy-po_quantity = wa_ekpo-po_quantity.
+*          wa_final_xy-po_uom = wa_ekpo-po_uom.
+          wa_final_xy-po_uom  = meins_output( iv_meins = wa_ekpo-po_uom ).
+          wa_final_xy-supplier_rfq = wa_ekpo-supplier_rfq.
+          wa_final_xy-doc_category = wa_ekpo-doc_category.
+        ENDIF.
+
+
+
+
+        APPEND wa_final_xy TO gt_final_xy.
+
+        CLEAR wa_eban.
+        CLEAR wa_ekkos.
+        CLEAR wa_ekpo.
+        CLEAR wa_final_xy.
+      ENDLOOP.
+
+    ENDIF.
+
+
+* if pr_date and pr_number fields are empty and only po_date or po_number is entered.
+    IF so_pr_da[] IS  INITIAL AND
+        so_pr_nm[] IS  INITIAL.
+
+      IF  so_D_dat[] IS NOT INITIAL OR
+      so_po_nm[] IS NOT INITIAL .
+
+
+
+
+
+        IF zz_ekko IS INITIAL.
+          SELECT
+                ebeln,
+                bsart,
+                bedat,
+                bstyp,
+                ekgrp
+                FROM ekko
+                APPENDING TABLE @zz_ekko
+                WHERE   ebeln IN @so_po_nm AND
+                        bedat IN @so_D_dat.
+               ENDIF.
+
+        IF zz_ekko IS NOT INITIAL.
+          SELECT
+                  ebeln,
+                 ebelp,
+                 creationdate,
+                 menge,
+                 meins,
+                 matnr,
+                 banfn,
+                 bnfpo,
+                 anfnr,
+                 anfps,
+                 bstyp,
+                 werks
+                FROM ekpo
+                APPENDING TABLE @gt_ekpo
+                FOR ALL ENTRIES IN @zz_ekko
+                WHERE  ebeln = @zz_ekko-pur_doc
+                AND bstyp = 'F'.
+        ENDIF.
+
+        IF gt_ekpo IS NOT INITIAL .
+          SELECT
+                     banfn,
+                     bsart,
+                     statu,
+                     bnfpo,
+                     badat,
+                     menge,
+                     meins,
+                     frgdt,
+                     erdat,
+                     afnam,
+                     ebeln,
+                     ebelp,
+                     creationdate,
+                     bsart,
+                     ekgrp,
+                     bedat,
+                     werks,
+                     matnr
+                     FROM eban APPENDING TABLE @gt_eban
+                     FOR ALL ENTRIES IN @gt_ekpo
+                     WHERE banfn =  @gt_ekpo-pr_req_no AND
+                            bnfpo =  @gt_ekpo-pr_item_no.
+        ENDIF.
+
+
+
+
+
+*      DATA: wa_final_xy TYPE ty_final_x.
+        LOOP AT zz_ekko INTO DATA(waz_ekko).
+          wa_final_xy-p_group = waz_ekko-pur_group.
+          wa_final_xy-po_doc = waz_ekko-pur_cat.
+          wa_final_xy-doc_date = waz_ekko-doc_date.
+*          READ TABLE gt_ekpo INTO wa_ekpo WITH KEY po_number = waz_ekko-pur_doc.
+      LOOP AT gt_ekpo INTO wa_ekpo where po_number = waz_ekko-pur_doc.
+          wa_final_xy-po_number = wa_ekpo-po_number.
+          wa_final_xy-po_item_po = wa_ekpo-po_item_po.
+          wa_final_xy-po_create_date = wa_ekpo-po_create_date.
+          wa_final_xy-po_quantity = wa_ekpo-po_quantity.
+*          wa_final_xy-po_uom = wa_ekpo-po_uom.
+          wa_final_xy-po_uom  = meins_output( iv_meins = wa_ekpo-po_uom ).
+          wa_final_xy-supplier_rfq = wa_ekpo-supplier_rfq.
+          wa_final_xy-doc_category = wa_ekpo-doc_category.
+          wa_final_xy-material_no = wa_ekpo-po_material_code.
+          wa_final_xy-plant = wa_ekpo-plant.
+
+          READ TABLE gt_eban INTO wa_eban WITH KEY pr_no =  wa_ekpo-pr_req_no    item =  wa_ekpo-pr_item_no.
+          IF sy-subrc IS INITIAL.
+            wa_final_xy-pr_no = wa_eban-pr_no.
+            wa_final_xy-pr_processing = wa_eban-pr_processing.
+            wa_final_xy-item = wa_eban-item.
+            wa_final_xy-pr_date = wa_eban-pr_date.
+            wa_final_xy-pr_quantity = wa_eban-pr_quantity.
+*            wa_final_xy-uom = wa_eban-uom.
+            wa_final_xy-uom  = meins_output( iv_meins = wa_eban-uom ).
+            wa_final_xy-pr_final_release = wa_eban-pr_final_release.
+            wa_final_xy-pr_modified = wa_eban-pr_modified.
+            wa_final_xy-pr_requisitioner = wa_eban-pr_requisitioner.
+            wa_final_xy-pr_doc = wa_eban-pr_doc.
+          ENDIF.
+
+          APPEND wa_final_xy TO gt_final_xy.
+CLEAR wa_eban.
+CLEAR wa_ekpo.
+            endloop.
+*ENDIF.
+
+
+
+
+
+
+
+
+
+          CLEAR wa_eban.
+          CLEAR wa_ekkos.
+          CLEAR wa_ekpo.
+          CLEAR wa_final_xy.
+        ENDLOOP.
+          CLEAR wa_eban.
+          CLEAR wa_ekkos.
+          CLEAR wa_ekpo.
+          CLEAR wa_final_xy.
+            ENDIF.
+
+        ENDIF.
+
+
+* if the pr_date,pr_no,po_date,po_no are empty and the rfq number is onty entered.
+
+    IF so_pr_da[] IS  INITIAL AND
+        so_pr_nm[] IS  INITIAL AND
+    so_D_dat[] IS  INITIAL AND
+        so_po_nm[] IS  INITIAL .
+
+
+      IF so_re_nm[] IS NOT INITIAL.
+
+
+
+
+        IF gt_ekkos IS INITIAL.
+
+          SELECT
+                       ebeln,
+                       aedat,
+                       lifnr,
+                       bsart,
+                       bedat,
+                       bstyp,
+                       ekgrp
+                       FROM ekko
+                       APPENDING TABLE @gt_ekkos
+                       WHERE   ebeln IN @so_re_nm .
+* AND                    bstyp = 'R'.
+        ENDIF.
+        IF gt_ekkos IS NOT INITIAL.
+          SELECT
+               ebeln,
+               ebelp,
+               banfn,
+               bnfpo,
+               matnr,
+               werks
+               FROM ekpo
+               INTO TABLE @DATA(zm_ekpo)
+               FOR ALL ENTRIES IN @gt_ekkos
+               WHERE ebeln = @gt_ekkos-rfq_no.
+
+        ENDIF.
+
+        IF gt_ekkos IS NOT INITIAL.
+          SELECT
+              ebeln,
+              ausnr
+              FROM ekko
+              APPENDING TABLE @DATA(mk_ekkos)
+              FOR ALL ENTRIES IN @gt_ekkos
+              WHERE  ausnr = @gt_ekkos-rfq_no.
+        ENDIF.
+        IF mk_ekkos IS NOT INITIAL.
+          SELECT
+              ebeln,
+             ebelp,
+             creationdate,
+             menge,
+             meins,
+             matnr,
+             banfn,
+             bnfpo,
+             anfnr,
+             anfps,
+             bstyp
+            FROM ekpo
+            APPENDING TABLE @gt_ekpo
+            FOR ALL ENTRIES IN @mk_ekkos
+            WHERE  anfnr = @mk_ekkos-ebeln.
+*              AND bstyp = 'F'.
+
+        ENDIF.
+
+
+
+        IF zm_ekpo IS NOT INITIAL.
+          SELECT
+                       banfn,
+                       bsart,
+                       statu,
+                       bnfpo,
+                       badat,
+                       menge,
+                       meins,
+                       frgdt,
+                       erdat,
+                       afnam,
+                       ebeln,
+                       ebelp,
+                       creationdate,
+                       bsart,
+                       ekgrp,
+                       bedat,
+                       werks,
+                       matnr
+                       FROM eban APPENDING TABLE @gt_eban
+                       FOR ALL ENTRIES IN @zm_ekpo
+                       WHERE banfn = @zm_ekpo-banfn AND
+     bnfpo = @zm_ekpo-bnfpo.
+
+
+        ENDIF.
+
+        LOOP AT gt_ekkos INTO wa_ekkos.
+          wa_final_xy-rfq_no = wa_ekkos-rfq_no.
+          wa_final_xy-rfq_create_date = wa_ekkos-rfq_create_date.
+          wa_final_xy-po_doc = wa_ekkos-po_doc.
+          wa_final_xy-doc_date = wa_ekkos-doc_date.
+          wa_final_xy-rfq_doc_category = wa_ekkos-rfq_doc_category.
+          wa_final_xy-p_group = wa_ekkos-pur_group.
+          READ TABLE zm_ekpo INTO DATA(mm_ekpo) WITH KEY ebeln = wa_ekkos-rfq_no.
+          wa_final_xy-material_no = mm_ekpo-matnr.
+          wa_final_xy-plant = mm_ekpo-werks.
+
+          READ TABLE gt_eban INTO wa_eban WITH KEY pr_no = mm_ekpo-banfn item = mm_ekpo-bnfpo.
+          IF sy-subrc IS INITIAL.
+            wa_final_xy-pr_no = wa_eban-pr_no.
+            wa_final_xy-pr_processing = wa_eban-pr_processing.
+            wa_final_xy-item = wa_eban-item.
+            wa_final_xy-pr_date = wa_eban-pr_date.
+            wa_final_xy-pr_quantity = wa_eban-pr_quantity.
+*            wa_final_xy-uom = wa_eban-uom .
+            wa_final_xy-uom  = meins_output( iv_meins = wa_eban-uom ).
+            wa_final_xy-pr_final_release = wa_eban-pr_final_release.
+            wa_final_xy-pr_modified = wa_eban-pr_modified.
+            wa_final_xy-pr_requisitioner = wa_eban-pr_requisitioner.
+*          wa_final_xy-pr_doc = wa_eban-pr_doc.
+*          wa_final_xy-p_group = wa_eban-p_group.
+*          wa_final_xy-plant = wa_eban-plant.
+
+          ENDIF.
+          READ TABLE mk_ekkos INTO DATA(mm_ekkos) WITH KEY ausnr = wa_ekkos-rfq_no.
+          READ TABLE gt_ekpo INTO wa_ekpo WITH KEY supplier_rfq = mm_ekkos-ebeln.
+          IF sy-subrc IS INITIAL.
+            wa_final_xy-po_number = wa_ekpo-po_number.
+            wa_final_xy-po_item_po = wa_ekpo-po_item_po.
+            wa_final_xy-po_create_date = wa_ekpo-po_create_date.
+            wa_final_xy-po_quantity = wa_ekpo-po_quantity.
+*            wa_final_xy-po_uom = wa_ekpo-po_uom.
+            wa_final_xy-uom  = meins_output( iv_meins = wa_ekpo-po_uom ).
+            wa_final_xy-supplier_rfq = wa_ekpo-supplier_rfq.
+            wa_final_xy-doc_category = wa_ekpo-doc_category.
+
+
+          ENDIF.
+
+
+          APPEND wa_final_xy TO gt_final_xy.
+
+          CLEAR wa_eban.
+          CLEAR wa_ekkos.
+          CLEAR wa_ekpo.
+          CLEAR mm_ekpo.
+          CLEAR mm_ekkos.
+          CLEAR wa_final_xy.
+        ENDLOOP.
+
+      ENDIF.
+
+    ENDIF.
+
+
+
+
+
+
+
+
+    IF gt_final_xy[] IS NOT INITIAL.
+
+      SELECT
+            banfn,
+            bnfpo,
+            txz01
+            FROM eban
+           APPENDING TABLE @DATA(mat_des)
+           FOR ALL ENTRIES IN @gt_final_xy
+           WHERE banfn =  @gt_final_xy-pr_no and
+                 bnfpo = @gt_final_xy-item.
+    ENDIF.
+
+*    IF sy-subrc = 0.
+*      " Sorting logic
+*      SORT gt_ekko BY rfq_no ASCENDING.    " You can change ASCENDING to DESCENDING if needed.
+*
+*    ENDIF.
+
+
+    LOOP AT gt_final_xy ASSIGNING FIELD-SYMBOL(<ss_final>) WHERE material_no IS  INITIAL AND  pr_no IS NOT INITIAL and item is not initial.
+
+      READ TABLE mat_des INTO DATA(ss_matd) WITH KEY banfn = <ss_final>-pr_no bnfpo = <ss_final>-item.
+      IF sy-subrc = 0.
+        <ss_final>-material_name = ss_matd-txz01.
+
+      ENDIF.
+      CLEAR ss_matd.
+    ENDLOOP.
+
+
+    IF gt_final_xy[] IS NOT INITIAL.
+
+      SELECT
+            ebeln,
+            ebelp,
+            txz01
+            FROM ekpo
+           APPENDING TABLE @DATA(mae_des)
+           FOR ALL ENTRIES IN @gt_final_xy
+           WHERE ebeln =  @gt_final_xy-po_number and
+                  ebelp =  @gt_final_xy-po_item_po.
+    ENDIF.
+
+
+*    IF sy-subrc = 0.
+*      " Sorting logic
+*      SORT gt_ekko BY rfq_no ASCENDING.    " You can change ASCENDING to DESCENDING if needed.
+*
+*    ENDIF.
+
+
+    LOOP AT gt_final_xy ASSIGNING FIELD-SYMBOL(<se_final>) WHERE material_no IS  INITIAL AND  po_number IS NOT INITIAL AND pr_no IS INITIAL and po_item_po is not INITIAL.
+
+      READ TABLE mae_des INTO DATA(se_matd) WITH KEY ebeln = <se_final>-po_number ebelp = <se_final>-po_item_po.
+      IF sy-subrc = 0.
+        <se_final>-material_name = se_matd-txz01.
+
+      ENDIF.
+      CLEAR ss_matd.
+    ENDLOOP.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    IF gt_final_xy[] IS NOT INITIAL.
+*      LOOP AT gt_final_xy ASSIGNING FIELD-SYMBOL(<fz_final>) WHERE rfq_no IS  INITIAL AND supplier_rfq IS NOT INITIAL.
+      SELECT
+           ebeln,
+           ausnr,
+           aedat,
+           lifnr,
+           bsart,
+           bedat,
+           bstyp
+           FROM ekko
+           APPENDING TABLE @gt_ekko
+           FOR ALL ENTRIES IN @gt_final_xy
+           WHERE ebeln = @gt_final_xy-supplier_rfq.
+    ENDIF.
+
+    IF sy-subrc = 0.
+      " Sorting logic
+      SORT gt_ekko BY rfq_no ASCENDING.    " You can change ASCENDING to DESCENDING if needed.
+
+    ENDIF.
+
+
+    LOOP AT gt_final_xy ASSIGNING FIELD-SYMBOL(<fs_final>) WHERE rfq_no IS  INITIAL AND supplier_rfq IS NOT INITIAL.
+
+      READ TABLE gt_ekko INTO DATA(wa_ekko) WITH KEY sup_rfq_no = <fs_final>-supplier_rfq.
+      IF sy-subrc = 0.
+        <fs_final>-rfq_no = wa_ekko-rfq_no.
+        <fs_final>-rfq_create_date = wa_ekko-rfq_create_date.
+        <fs_final>-po_doc = wa_ekko-po_doc.
+        <fs_final>-doc_date = wa_ekko-doc_date.
+      ENDIF.
+      CLEAR wa_ekko.
+    ENDLOOP.
+
+
+    IF gt_final_xy[] IS NOT INITIAL.
+      SELECT
+           ebeln,
+           aedat,
+           lifnr
+
+           FROM ekko
+           APPENDING TABLE @DATA(ls_ekko)
+           FOR ALL ENTRIES IN @gt_final_xy
+           WHERE ebeln = @gt_final_xy-po_number.
+    ENDIF.
+    LOOP AT gt_final_xy ASSIGNING FIELD-SYMBOL(<fm_final>) WHERE supplier_no IS  INITIAL AND po_number IS NOT INITIAL.
+      READ TABLE ls_ekko INTO DATA(wm_ekko) WITH KEY ebeln = <fm_final>-po_number.
+      IF sy-subrc = 0.
+
+        <fm_final>-supplier_no = wm_ekko-lifnr.
+
+      ENDIF.
+      CLEAR wa_ekko.
+
+    ENDLOOP.
+
+*    IF gt_final_xy[] IS NOT INITIAL.
+*      SELECT
+*           ebeln,
+*           prdat
+*
+*           FROM ekpo
+*           APPENDING TABLE @data(lm_ekpo)
+*           FOR ALL ENTRIES IN @gt_final_xy
+*      WHERE ebeln = @gt_final_xy-po_number.
+*    ENDIF.
+*    LOOP AT gt_final_xy ASSIGNING FIELD-SYMBOL(<fx_final>) WHERE po_final_release_date IS not INITIAL AND po_number IS NOT INITIAL.
+*    READ TABLE lm_ekpo INTO data(wm_ekpo) WITH KEY ebeln = <fx_final>-po_number.
+*    IF sy-subrc = 0.
+*
+*        <fx_final>-po_final_release_date = wm_ekpo-prdat.
+*
+*      ENDIF.
+*      clear wm_ekpo.
+*
+*    endloop.
+
+
+
+
+
+
+    IF gt_final_xy IS NOT INITIAL.
+      LOOP AT gt_final_xy INTO wa_final_xy.
+        CLEAR ls_rfq_range.
+        ls_rfq_range-sign = 'I'.
+        ls_rfq_range-option = 'CP'.
+        ls_rfq_range-low = '*' && wa_final_xy-rfq_no && '*'.           " Assuming rfq is the RFQ number field in ekpo table
+        APPEND ls_rfq_range TO lt_rfq_range.
+        CLEAR ls_rfq_range.
+
+      ENDLOOP.
+    ENDIF.
+
+    IF lt_rfq_range[] IS NOT INITIAL.
+      SELECT wi_id , wi_stat , wi_aed,wi_text
+      FROM swwwihead
+      INTO TABLE @lt_swwihead
+                                                        "#EC CI_NOFIELD
+      WHERE  wi_type = 'F'
+      AND    wi_text IN @lt_rfq_range
+      AND  wi_stat = 'COMPLETED'.
+      SORT: lt_swwihead BY wi_id ASCENDING.
+    ENDIF.
+
+    LOOP AT gt_final_xy ASSIGNING FIELD-SYMBOL(<ft_final>)  WHERE   rfq_final_approval_date IS INITIAL AND rfq_no IS NOT INITIAL.
+      LOOP AT lt_swwihead INTO DATA(ls_swwihead) WHERE wi_text CP '*' && <ft_final>-rfq_no && '*'.
+        IF sy-subrc = 0.
+          <ft_final>-rfq_final_approval_date = ls_swwihead-wi_aed.
+          EXIT.
+        ENDIF.
+      ENDLOOP.
+    ENDLOOP.
+
+
+    CLEAR wa_final_xy.
+    IF gt_final_xy IS NOT INITIAL.
+      LOOP AT gt_final_xy INTO DATA(wx_final_xy).
+        CLEAR ll_rfq_range.
+        ll_rfq_range-sign = 'I'.
+        ll_rfq_range-option = 'CP'.
+        ll_rfq_range-low = '*' && wx_final_xy-po_number && '*'.           " Assuming rfq is the RFQ number field in ekpo table
+        APPEND ll_rfq_range TO lm_rfq_range.
+        CLEAR ll_rfq_range.
+
+      ENDLOOP.
+    ENDIF.
+
+    IF lt_rfq_range[] IS NOT INITIAL.
+      SELECT wi_id , wi_stat , wi_aed,wi_text
+      FROM swwwihead
+      INTO TABLE @lt_swwihead
+                                                        "#EC CI_NOFIELD
+      WHERE  wi_type = 'F'
+      AND    wi_text IN @lm_rfq_range
+        AND  wi_stat = 'COMPLETED'.
+      SORT: lt_swwihead BY wi_id ASCENDING.
+    ENDIF.
+
+    LOOP AT gt_final_xy ASSIGNING FIELD-SYMBOL(<fk_final>)  WHERE   po_final_release_date IS INITIAL AND po_number IS NOT INITIAL.
+      LOOP AT lt_swwihead INTO DATA(lx_swwihead) WHERE wi_text CP '*' && <fk_final>-po_number && '*'.
+        IF sy-subrc = 0.
+          <fk_final>-po_final_release_date = lx_swwihead-wi_aed.
+          EXIT.
+        ENDIF.
+      ENDLOOP.
+    ENDLOOP.
+
+
+  ENDMETHOD.
+
+
+
+*Method Fetching the master data with respect to selected data from the master table.
+  METHOD generic_data.
+
+*Fetching material master data related to fetched data.
+    IF gt_final_xy[] IS NOT INITIAL.
+      SELECT
+           a~matnr AS material_code,
+           b~maktx AS material_name,
+           a~mtart AS material_type
+           FROM mara AS a
+           INNER JOIN makt AS b
+           ON a~matnr = b~matnr
+           APPENDING TABLE @gt_mara
+           FOR ALL ENTRIES IN @gt_final_xy
+      WHERE a~matnr = @gt_final_xy-material_no.
+
+
+      IF sy-subrc = 0.
+        " Sorting logic
+        SORT gt_mara BY material_code ASCENDING.
+
+      ENDIF.
+    ENDIF.
+
+
+
+
+*Fetching grn data related to fetched data.
+    IF gt_final_xy[] IS NOT INITIAL.
+      SELECT
+           belnr,
+           budat,
+           ebeln
+           FROM ekbe
+           APPENDING TABLE @gt_ekbe
+           FOR ALL ENTRIES IN @gt_final_xy
+      WHERE ebeln = @gt_final_xy-po_number.
+
+
+      IF sy-subrc = 0.
+        " Sorting logic
+        SORT gt_ekbe BY po_number ASCENDING.       " You can change ASCENDING to DESCENDING if needed.
+      ENDIF.
+    ENDIF.
+*Fetching Vendor master data related to fetched data.
+    IF gt_final_xy[] IS NOT INITIAL.
+      SELECT
+           lifnr,
+           name1
+           FROM lfa1
+           APPENDING TABLE @gt_lfa1
+           FOR ALL ENTRIES IN @gt_final_xy
+      WHERE lifnr = @gt_final_xy-supplier_no.
+      IF sy-subrc = 0.
+        " Sorting logic
+        SORT gt_lfa1 BY vendor_number ASCENDING.
+      ENDIF.
+    ENDIF.
+
+
+
+  ENDMETHOD.
+
+
+
+
+
+*In this Method we appending the the fetched data to final work area and final internal table
+  METHOD alv_final_internal_table.
+
+
+*    TYPES: BEGIN OF ty_display,
+*
+*         unconverted_meins TYPE text30,
+*         converted_meins   TYPE text30,
+*       END OF ty_display.
+*
+*DATA: lt_display TYPE TABLE OF ty_display.
+*
+*lt_display = value #( LET lcl_alvo = NEW lcl_alv( ) IN
+*                                     FOR wx_final_xy IN gt_final_xy ( unconverted_meins = wx_final_xy-uom )
+*                                     converted_meins   = lcl_alvo->meins_output( iv_meins = wx_final_xy-uom ) ).
+*
+*
+
+    gt_purchase_info = VALUE #( FOR wa_final_xy IN gt_final_xy
+                                LET wa_mara = VALUE #( gt_mara[ material_code = wa_final_xy-material_no ] OPTIONAL )
+                                    wa_ekbe = VALUE #( gt_ekbe[ po_number = wa_final_xy-po_number ] OPTIONAL )
+                                    wa_lfa1 = VALUE #( gt_lfa1[ vendor_number = wa_final_xy-supplier_no ] OPTIONAL )
+*                                    wa_swwihead = VALUE #( lt_swwihead[ wi_text = '*' && wa_final_xy-rfq_no && '*' ] OPTIONAL )
+                               IN
+                               ( pr_number               = wa_final_xy-pr_no
+                                pr_created_date     = wa_final_xy-pr_created_date
+                                pr_requisitioner        = wa_final_xy-pr_requisitioner
+                                pr_item_number          = wa_final_xy-item
+                                material_code           = wa_mara-material_code
+                                material_name           = COND #( WHEN wa_final_xy-material_no IS NOT INITIAL THEN  wa_mara-material_name
+                                                                  WHEN wa_final_xy-material_code IS  INITIAL THEN wa_final_xy-material_name )
+*                                material_name   =      wa_mara-material_name
+                                pr_quantity             = wa_final_xy-pr_quantity
+                                pr_uom                  = wa_final_xy-uom
+                                processing_status       = wa_final_xy-pr_processing
+                                processing_status_d     = COND #( WHEN wa_final_xy-pr_processing = 'N' THEN 'Not edited'
+                                                                  WHEN wa_final_xy-pr_processing = 'B' THEN 'PO created'
+                                                                  WHEN wa_final_xy-pr_processing = 'A' THEN 'RFQ created'
+                                                                 )
+                                pr_final_release_date   =  wa_final_xy-pr_final_release
+                                pr_modified_date        =  wa_final_xy-pr_modified
+
+*                                rfq_number = COND #( WHEN wa_final_xy-rfq_doc_category = 'R' THEN wa_final_xy-rfq_no )
+                                rfq_number              =  wa_final_xy-rfq_no
+                                rfq_create_date         =  wa_final_xy-rfq_create_date
+
+                                  po_number = COND #( WHEN wa_final_xy-doc_category = 'F' THEN wa_final_xy-po_number )
+*                                po_number               =    wa_final_xy-po_number
+
+                                po_create_date          =  wa_final_xy-po_create_date
+                                po_final_release_date   =  wa_final_xy-po_final_release_date
+                                po_quantity             =  wa_final_xy-po_quantity
+                                po_uom                  =  wa_final_xy-po_uom
+                                vendor_number           =  wa_lfa1-vendor_number
+                                vendor_name             =  wa_lfa1-vendor_name
+                                grn_no                  =  wa_ekbe-grn_no
+                                grn_date                =  wa_ekbe-grn_date
+                                po_doc                  =  wa_final_xy-po_doc
+                                material_type           =  wa_mara-material_type
+                                pr_date                 =  wa_final_xy-pr_date
+                                po_date                 =  wa_final_xy-po_date
+                                p_group                 =  wa_final_xy-p_group
+                                pr_doc                  =  wa_final_xy-pr_doc
+                                doc_date                =  wa_final_xy-doc_date
+                                plant                   =  wa_final_xy-plant
+                                rfq_final_approval_date =  wa_final_xy-rfq_final_approval_date ) ).
+
+
+    IF so_pr_da[] IS NOT INITIAL.
+      "this will delete all records which do not have  pr_date which user enters on selection screen.
+      DELETE gt_purchase_info WHERE pr_date NOT IN  so_pr_da[].
+    ENDIF.
+    IF so_p_grp[] IS NOT INITIAL.
+      "this will delete all records which do not have  p_group which user enters on selection screen.
+      DELETE gt_purchase_info WHERE p_group NOT IN  so_p_grp[].
+    ENDIF.
+
+
+*if the processing status is not empty on selection screen then this will execute.
+    IF so_pr_ps[] IS NOT INITIAL.
+      "this will delete all records which do not have  processing_status which user enters on selection screen.
+      DELETE gt_purchase_info WHERE processing_status NOT IN  so_pr_ps[].
+    ENDIF.
+
+*if the document type  is not empty on selection screen then this will execute.
+    IF so_po_dc[] IS NOT INITIAL.
+      "this will delete all records which do not have  document type which user enters on selection screen.
+      DELETE gt_purchase_info WHERE po_doc NOT IN  so_po_dc[].
+    ENDIF.
+    IF so_pr_dc[] IS NOT INITIAL.
+      "this will delete all records which do not have  document type which user enters on selection screen.
+      DELETE gt_purchase_info WHERE pr_doc NOT IN  so_pr_dc[].
+    ENDIF.
+
+*if the material_type  is not empty on selection screen then this will execute.
+    IF so_mat[] IS NOT INITIAL.
+      "this will delete all records which do not have  material_type which user enters on selection screen.
+      DELETE gt_purchase_info WHERE material_type NOT IN  so_mat[].
+    ENDIF.
+
+*if the po_create_date is not empty on selection screen then this will execute.
+    IF so_D_dat[] IS NOT INITIAL.
+      "this will delete all records which do not have  po_create_date which user enters on selection screen.
+      DELETE gt_purchase_info WHERE po_create_date NOT IN  so_D_dat[].
+    ENDIF.
+*if the pr_number is not empty on selection screen then this will execute.
+    IF so_pr_nm[] IS NOT INITIAL.
+      "this will delete all records which do not have  pr_number which user enters on selection screen.
+      DELETE gt_purchase_info WHERE pr_number NOT IN  so_pr_nm[].
+    ENDIF.
+
+*if the po_numberis not empty on selection screen then this will execute.
+    IF so_po_nm[] IS NOT INITIAL.
+      "this will delete all records which do not have  po_number which user enters on selection screen.
+      DELETE gt_purchase_info WHERE po_number NOT IN  so_po_nm[].
+    ENDIF.
+
+*if the rfq_number is not empty on selection screen then this will execute.
+    IF so_re_nm[] IS NOT INITIAL.
+      "this will delete all records which do not have  rfq_number which user enters on selection screen.
+      DELETE gt_purchase_info WHERE rfq_number NOT IN  so_re_nm[].
+    ENDIF.
+
+    IF so_plant[] IS NOT INITIAL.
+      "this will delete all records which do not have  rfq_number which user enters on selection screen.
+      DELETE gt_purchase_info WHERE plant NOT IN  so_plant[].
+    ENDIF.
+
+*if the check box on selection screen is ticked on selection screen then this will execute.
+    IF ck_show = abap_true.
+*      this will delete all records which do not have  grn_no which user enters on selection screen.
+      DELETE gt_purchase_info WHERE grn_no IS INITIAL.
+    ENDIF.
+*    "this will delete all records which  have multiple same records pr_number which user enters on selection screen.
+**    DELETE ADJACENT DUPLICATES FROM gt_purchase_info COMPARING pr_number .
+    SORT gt_purchase_info  BY pr_number  pr_item_number  po_number ASCENDING.
+*      DELETE ADJACENT DUPLICATES FROM gt_purchase_info COMPARING pr_number pr_item_number .
+  ENDMETHOD.
+
+  "Implementation ofD the method show_grid for display of our internal table.
+  METHOD show_grid.
+    DATA:
+    Ls_layo TYPE lvc_s_layo.
+*    APPEND INITIAL LINE TO mt_layout ASSIGNING <fs_layo>.
+    Ls_layo-zebra = 'X'.
+* Step1
+*Create a ref for  CL_GUI_CUSTOM_CONTAINER
+
+    CREATE OBJECT obj_ccont
+      EXPORTING
+        container_name = 'CONCUST'.
+
+
+*Step 2.
+* Create a ref for CL_GUI_ALV_GRID.
+
+    CREATE OBJECT obj_alv
+      EXPORTING
+        i_parent = obj_ccont.
+
+
+*call method lcl_alv->build_fieldcat.
+
+
+    CALL METHOD obj_alv->set_table_for_first_display
+      EXPORTING
+        i_structure_name = 'TY_PURCHASE_INFO'
+        is_layout        = Ls_layo
+      CHANGING
+        it_outtab        = gt_purchase_info
+        it_fieldcatalog  = mt_fieldcat.
+
+  ENDMETHOD.
+
+ENDCLASS.
+
+
+START-OF-SELECTION.
+  DATA: oref1 TYPE REF TO lcl_alv.
+
+  CREATE OBJECT: oref1.
+
+
+
+  CALL METHOD oref1->fetch_all_data.
+
+  CALL METHOD oref1->generic_data.
+
+  CALL METHOD oref1->alv_final_internal_table.
+*if final internal table is not not empty Alv Report (field catlog and the grid will  be called).
+  IF oref1->gt_purchase_info[] IS NOT INITIAL.
+    CALL SCREEN 200.
+  ENDIF.
+*  if final internal table is empty then say that no data in database with out calling the alv report.
+  IF oref1->gt_purchase_info[] IS INITIAL.
+    DATA:k_error TYPE string.
+    k_error = 'No Data in Database'.
+    MESSAGE k_error TYPE 'S'.
+*        RETURN.
+  ENDIF.
+
+*&---------------------------------------------------------------------*
+*& Module STATUS_0200 OUTPUT
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+MODULE status_0200 OUTPUT.
+* SET PF-STATUS 'xxxxxxxx'.
+  SET TITLEBAR 'ZTITLE'.
+
+  CALL METHOD oref1->build_fieldcat.
+
+  CALL METHOD oref1->show_grid.
+
+
+ENDMODULE.
+*&---------------------------------------------------------------------*
+*&      Module  USER_COMMAND_0200  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE user_command_0200 INPUT.
+
+  CASE sy-ucomm.
+
+    WHEN 'BACK'.
+
+      CLEAR sy-ucomm.
+
+      LEAVE TO SCREEN 0.
+
+    WHEN '%EX'.
+
+      CLEAR sy-ucomm.
+
+      LEAVE TO SCREEN 0.
+
+    WHEN 'RW'.
+
+      CLEAR sy-ucomm.
+
+      LEAVE TO SCREEN 0.
+
+      LEAVE SCREEN.
+
+  ENDCASE.
+
+
+
+ENDMODULE.

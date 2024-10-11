@@ -1,0 +1,71 @@
+REPORT ZINF_TYPE_EXAMPLE.
+
+TABLES: ZINF_TYPE.
+
+DATA: ls_inf_type TYPE ZINF_TYPE,
+      lt_inf_type TYPE TABLE OF ZINF_TYPE,
+      lv_material_type TYPE ZINF_TYPE-MATERIAL_TYPE,
+      lv_description TYPE ZINF_TYPE-DESCRIPTION.
+
+TYPES: BEGIN OF ty_custom_material_type,
+         custom_material_type TYPE CHAR7,
+       END OF ty_custom_material_type.
+
+PARAMETERS: p_mpe TYPE ty_custom_material_type OBLIGATORY,
+            p_dn TYPE ZINF_TYPE-DESCRIPTION OBLIGATORY.
+
+SELECTION-SCREEN BEGIN OF BLOCK blk1 WITH FRAME TITLE text-101. "selection screen block
+PARAMETERS: p_rad1 RADIOBUTTON GROUP rg1 USER-COMMAND flag DEFAULT 'X',
+            p_rad2 RADIOBUTTON GROUP rg1.
+
+SELECTION-SCREEN END OF BLOCK blk1.
+
+SELECTION-SCREEN BEGIN OF BLOCK insert WITH FRAME TITLE text-102. "insert block
+PARAMETERS: p_ie TYPE ty_custom_material_type OBLIGATORY,
+            p_inn TYPE ZINF_TYPE-DESCRIPTION OBLIGATORY.
+
+SELECTION-SCREEN END OF BLOCK insert.
+
+SELECTION-SCREEN BEGIN OF BLOCK update WITH FRAME TITLE text-103. "update block
+PARAMETERS: p_e TYPE ty_custom_material_type OBLIGATORY,
+            p_upon TYPE ZINF_TYPE-DESCRIPTION OBLIGATORY.
+
+SELECTION-SCREEN END OF BLOCK update.
+
+SELECTION-SCREEN BEGIN OF BLOCK delete WITH FRAME TITLE text-104. "delete block
+PARAMETERS: p_depe TYPE ty_custom_material_type OBLIGATORY.
+
+SELECTION-SCREEN END OF BLOCK delete.
+
+* Inserting records into ZINF_TYPE
+AT SELECTION-SCREEN.
+  IF p_rad1 = 'X'.
+    INSERT INTO ZINF_TYPE VALUES (p_insert_material_type, p_insert_description ).
+    CLEAR: p_insert_material_type, p_insert_description.
+  ENDIF.
+
+* Selecting records from ZINF_TYPE
+SELECT MATERIAL_TYPE DESCRIPTION
+  INTO TABLE lt_inf_type
+  FROM ZINF_TYPE.
+
+* Displaying selected records
+LOOP AT lt_inf_type INTO ls_inf_type.
+  WRITE: / 'Material Type:', ls_inf_type-MATERIAL_TYPE,
+         'Description:', ls_inf_type-DESCRIPTION.
+ENDLOOP.
+
+AT SELECTION-SCREEN ON p_rad2.
+  CASE sy-ucomm.
+    WHEN 'flag'.
+      LOOP AT lt_inf_type INTO ls_inf_type.
+        IF ls_inf_type-MATERIAL_TYPE = p_update_material_type.
+          ls_inf_type-DESCRIPTION = p_update_description.
+          MODIFY ZINF_TYPE FROM ls_inf_type.
+        ENDIF.
+      ENDLOOP.
+      CLEAR: p_update_material_type, p_update_description.
+    WHEN 'delete'.
+      DELETE FROM ZINF_TYPE WHERE MATERIAL_TYPE = p_delete_material_type.
+      CLEAR: p_delete_material_type.
+  ENDCASE.

@@ -1,0 +1,41 @@
+REPORT ZINF_UPDATE_MATERIAL.
+
+TABLES: ZINF_MATERIAL.
+
+PARAMETERS: p_matnr TYPE ZINF_MATERIAL-MATERIAL_NUMBER OBLIGATORY,
+            p_descn TYPE ZINF_MATERIAL-MATERIAL_DESCRIPTION,
+            p_group TYPE ZINF_MATERIAL-MATERIAL_GROUP,
+            p_type TYPE ZINF_MATERIAL-MATERIAL_TYPE,
+            p_date TYPE ZINF_MATERIAL-CREATED_DATE,
+            p_time TYPE ZINF_MATERIAL-CREATED_TIME.
+
+DATA: lt_material TYPE TABLE OF ZINF_MATERIAL,
+      ls_material TYPE ZINF_MATERIAL.
+
+START-OF-SELECTION.
+  " Fetch the record to be updated
+  SELECT * FROM ZINF_MATERIAL
+    INTO TABLE lt_material
+    WHERE MATERIAL_NUMBER = p_matnr.
+
+  READ TABLE lt_material INTO ls_material WITH KEY MATERIAL_NUMBER = p_matnr.
+
+  IF sy-subrc = 0.
+    " Update the fields with new values
+    ls_material-MATERIAL_DESCRIPTION =   p_descn.
+    ls_material-MATERIAL_GROUP = p_group.
+    ls_material-MATERIAL_TYPE = p_type.
+    ls_material-CREATED_DATE = p_date.
+    ls_material-CREATED_TIME = p_time.
+
+    " Update the record in the ZINF_MATERIAL table
+    MODIFY ZINF_MATERIAL FROM TABLE lt_material.
+
+    IF sy-subrc = 0.
+      WRITE: / 'Material updated successfully - Material Number:', p_matnr.
+    ELSE.
+      WRITE: / 'Error updating material - Material Number:', p_matnr.
+    ENDIF.
+  ELSE.
+    WRITE: / 'Material not found for update - Material Number:', p_matnr.
+  ENDIF.

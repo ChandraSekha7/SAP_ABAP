@@ -1,0 +1,145 @@
+REPORT ZINF_CRUD_MATERIAL.
+
+TABLES: ZINF_MATERIAL.
+
+TYPES: BEGIN OF ty_material,
+         MATERIAL_NUMBER TYPE ZINF_MATERIAL-MATERIAL_NUMBER,
+         MATERIAL_DESCRIPTION TYPE ZINF_MATERIAL-MATERIAL_DESCRIPTION,
+         MATERIAL_GROUP TYPE ZINF_MATERIAL-MATERIAL_GROUP,
+         MATERIAL_TYPE TYPE ZINF_MATERIAL-MATERIAL_TYPE,
+         CREATED_DATE TYPE ZINF_MATERIAL-CREATED_DATE,
+         CREATED_TIME TYPE ZINF_MATERIAL-CREATED_TIME,
+       END OF ty_material.
+
+DATA: lt_materials TYPE TABLE OF ZINF_MATERIAL,
+      ls_material   TYPE ZINF_MATERIAL.
+
+DATA: gv_operation TYPE char1,
+      gv_matnr     TYPE ZINF_MATERIAL-MATERIAL_NUMBER,
+      gv_descn     TYPE ZINF_MATERIAL-MATERIAL_DESCRIPTION,
+      gv_group     TYPE ZINF_MATERIAL-MATERIAL_GROUP,
+      gv_type      TYPE ZINF_MATERIAL-MATERIAL_TYPE,
+      gv_date      TYPE ZINF_MATERIAL-CREATED_DATE,
+      gv_time      TYPE ZINF_MATERIAL-CREATED_TIME.
+
+START-OF-SELECTION.
+
+  " Fetch all records
+  SELECT * FROM ZINF_MATERIAL INTO TABLE lt_materials.
+
+  " Display records
+  LOOP AT lt_materials INTO ls_material.
+    WRITE: / 'Material Number:', ls_material-MATERIAL_NUMBER,
+           / 'Material Description:', ls_material-MATERIAL_DESCRIPTION,
+           / 'Material Group:', ls_material-MATERIAL_GROUP,
+           / 'Material Type:', ls_material-MATERIAL_TYPE,
+           / 'Created Date:', ls_material-CREATED_DATE,
+           / 'Created Time:', ls_material-CREATED_TIME,
+           / '---------------------'.
+  ENDLOOP.
+
+AT SELECTION-SCREEN OUTPUT.
+  " Provide options for Create, Update, Delete, and Fetch
+  LOOP AT SCREEN.
+    CASE SCREEN-GROUP1.
+      WHEN 'OPERATION'.
+        SCREEN-INPUT = 1.
+        SCREEN-ACTIVE = 1.
+    ENDCASE.
+  ENDLOOP.
+
+  WRITE: / 'Select an operation (C: Create, U: Update, D: Delete, F: Fetch):'.
+  CLEAR gv_operation.
+
+AT SELECTION-SCREEN.
+  CASE sy-dynnr.
+    WHEN 100.
+      IF sy-ucomm = 'C' OR sy-ucomm = 'U' OR sy-ucomm = 'D' OR sy-ucomm = 'F'.
+        gv_operation = sy-ucomm.
+        CLEAR gv_matnr.
+        CLEAR gv_descn.
+        CLEAR gv_group.
+        CLEAR gv_type.
+        CLEAR gv_date.
+        CLEAR gv_time.
+      ENDIF.
+    WHEN 200.
+      IF gv_operation IS INITIAL AND ( gv_matnr IS INITIAL OR gv_matnr = '0' ).
+        CLEAR gv_matnr.
+        CLEAR gv_descn.
+        CLEAR gv_group.
+        CLEAR gv_type.
+        CLEAR gv_date.
+        CLEAR gv_time.
+      ENDIF.
+    WHEN 300.
+      IF gv_operation = 'C'.
+        LOOP AT SCREEN.
+          IF SCREEN-GROUP1 = 'DATA'.
+            SCREEN-INPUT = 1.
+            MODIFY SCREEN.
+          ENDIF.
+        ENDLOOP.
+      ENDIF.
+      IF gv_operation = 'U' AND gv_matnr IS INITIAL.
+        MESSAGE 'Please enter a valid Material Number for Update operation' TYPE 'E'.
+      ENDIF.
+    WHEN 400.
+      IF gv_operation = 'U' AND gv_matnr IS INITIAL.
+        MESSAGE 'Please enter a valid Material Number for Update operation' TYPE 'E'.
+      ENDIF.
+    WHEN 500.
+      IF gv_operation = 'D' AND gv_matnr IS INITIAL.
+        MESSAGE 'Please enter a valid Material Number for Delete operation' TYPE 'E'.
+      ENDIF.
+    WHEN 600.
+      IF gv_operation = 'F' AND gv_matnr IS INITIAL.
+        MESSAGE 'Please enter a valid Material Number for Fetch operation' TYPE 'E'.
+      ENDIF.
+  ENDCASE.
+
+  CASE sy-dynnr.
+    WHEN 100.
+      IF sy-ucomm = 'C' OR sy-ucomm = 'U' OR sy-ucomm = 'D' OR sy-ucomm = 'F'.
+        gv_operation = sy-ucomm.
+        CLEAR gv_matnr.
+        CLEAR gv_descn.
+        CLEAR gv_group.
+        CLEAR gv_type.
+        CLEAR gv_date.
+        CLEAR gv_time.
+      ENDIF.
+    WHEN 200.
+      IF gv_operation IS INITIAL AND ( gv_matnr IS INITIAL OR gv_matnr = '0' ).
+        CLEAR gv_matnr.
+        CLEAR gv_descn.
+        CLEAR gv_group.
+        CLEAR gv_type.
+        CLEAR gv_date.
+        CLEAR gv_time.
+      ENDIF.
+    WHEN 300.
+      IF gv_operation = 'C'.
+        LOOP AT SCREEN.
+          IF SCREEN-GROUP1 = 'DATA'.
+            SCREEN-INPUT = 1.
+            MODIFY SCREEN.
+          ENDIF.
+        ENDLOOP.
+      ENDIF.
+      IF gv_operation = 'U' AND gv_matnr IS INITIAL.
+        MESSAGE 'Please enter a valid Material Number for Update operation' TYPE 'E'.
+      ENDIF.
+    WHEN 400.
+      IF gv_operation = 'U' AND gv_matnr IS INITIAL.
+        MESSAGE 'Please enter a valid Material Number for Update operation' TYPE 'E'.
+      ENDIF.
+    WHEN 500.
+      IF gv_operation = 'D' AND gv_matnr IS INITIAL.
+        MESSAGE 'Please enter a valid Material Number for Delete operation' TYPE 'E'.
+      ENDIF.
+    WHEN 600.
+      IF gv_operation = 'F' AND gv_matnr IS INITIAL.
+        MESSAGE 'Please enter a valid Material Number for Fetch operation' TYPE 'E'.
+      ENDIF.
+  ENDCASE.

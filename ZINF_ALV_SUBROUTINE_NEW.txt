@@ -1,0 +1,133 @@
+REPORT zinf_alv_subroutine_new.
+
+TABLES: zinf_material, zinf_groups, zinf_type.
+
+TYPES: BEGIN OF ty_result,
+         material_number      TYPE zinf_material-material_number,
+         material_description TYPE zinf_material-material_description,
+         material_group       TYPE zinf_material-material_group,
+         material_type        TYPE zinf_material-material_type,
+         created_date         TYPE zinf_material-created_date,
+         created_time         TYPE zinf_material-created_time,
+         group_description    TYPE zinf_groups-description,
+         type_description     TYPE zinf_type-description,
+         cellcolor            TYPE lvc_t_scol,
+       END OF ty_result.
+
+DATA: lt_result TYPE TABLE OF ty_result,
+      wa_result TYPE ty_result.
+
+DATA: it_alv_design TYPE slis_t_fieldcat_alv,
+      wa_alv_design TYPE slis_fieldcat_alv,
+      wa_alv_layout TYPE slis_layout_alv,
+      lt_sort_info  TYPE slis_t_sortinfo_alv.
+
+START-OF-SELECTION.
+  PERFORM f_fetch_data.
+  PERFORM f_build_field_catalog.
+  PERFORM f_build_layout.
+  PERFORM set_color.
+  PERFORM f_display_alv_report.
+
+* Subroutine to fetch data from ZINF_MATERIAL, ZINF_GROUPS, and ZINF_TYPE
+FORM f_fetch_data.
+
+  SELECT m~material_number,
+         m~material_description,
+         m~material_group,
+         m~material_type,
+         m~created_date,
+         m~created_time,
+         g~description AS group_description,
+         t~description AS type_description
+    INTO CORRESPONDING FIELDS OF TABLE @lt_result
+    FROM zinf_material AS m
+    INNER JOIN zinf_groups AS g ON m~material_group = g~material_type
+    INNER JOIN zinf_type AS t ON m~material_type = t~material_type.
+
+ENDFORM.
+
+* Subroutine to build field catalog
+FORM f_build_field_catalog.
+  CLEAR it_alv_design.
+  APPEND VALUE #( fieldname = 'MATERIAL_NUMBER' tabname = 'LT_RESULT' outputlen = '15' seltext_m = 'Material Number' ) TO it_alv_design.
+  APPEND VALUE #( fieldname = 'MATERIAL_DESCRIPTION' tabname = 'LT_RESULT' outputlen = '30' seltext_m = 'Material Description' ) TO it_alv_design.
+  APPEND VALUE #( fieldname = 'MATERIAL_GROUP' tabname = 'LT_RESULT' outputlen = '15' seltext_m = 'Material Group' ) TO it_alv_design.
+  APPEND VALUE #( fieldname = 'MATERIAL_TYPE' tabname = 'LT_RESULT' outputlen = '20' seltext_m = 'Material Type' ) TO it_alv_design.
+  APPEND VALUE #( fieldname = 'CREATED_DATE' tabname = 'LT_RESULT' outputlen = '20' seltext_m = 'Created Date' ) TO it_alv_design.
+  APPEND VALUE #( fieldname = 'CREATED_TIME' tabname = 'LT_RESULT' outputlen = '30' seltext_m = 'Created Time' ) TO it_alv_design.
+  APPEND VALUE #( fieldname = 'GROUP_DESCRIPTION' tabname = 'LT_RESULT' outputlen = '40' seltext_m = 'Group Description' ) TO it_alv_design.
+  APPEND VALUE #( fieldname = 'TYPE_DESCRIPTION' tabname = 'LT_RESULT' outputlen = '50' seltext_m = 'Type Description' ) TO it_alv_design.
+ENDFORM.
+
+* Subroutine to build layout
+FORM f_build_layout.
+  CLEAR wa_alv_layout.
+  wa_alv_layout-zebra = 'X'.
+  wa_alv_layout-coltab_fieldname = 'CELLCOLOR'.
+ENDFORM.
+
+* Subroutine to display ALV report
+FORM f_display_alv_report.
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+    EXPORTING
+      it_fieldcat = it_alv_design
+      is_layout   = wa_alv_layout
+      it_sort     = lt_sort_info
+    TABLES
+      t_outtab    = lt_result.
+ENDFORM.
+
+* Additional subroutine to write selected data to screen
+FORM f_write_selected_data.
+  LOOP AT lt_result INTO wa_result.
+    WRITE: / 'Material Number:', wa_result-material_number,
+           / 'Material Description:', wa_result-material_description,
+           / 'Material Group:', wa_result-material_group,
+           / 'Material Type:', wa_result-material_type,
+           / 'Created Date:', wa_result-created_date,
+           / 'Created Time:', wa_result-created_time,
+           / 'Group Description:', wa_result-group_description,
+           / 'Type Description:', wa_result-type_description.
+    SKIP.
+  ENDLOOP.
+ENDFORM.
+
+** Add a call to the additional subroutine in START-OF-SELECTION
+*START-OF-SELECTION.
+**  PERFORM f_fetch_data.
+**  PERFORM f_build_field_catalog.
+**  PERFORM f_build_layout.
+**  PERFORM f_display_alv_report.
+*  PERFORM f_write_selected_data.
+*&---------------------------------------------------------------------*
+*& Form set_color
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM set_color .
+
+  DATA  : ls_cellcolor TYPE lvc_s_scol,
+          lv_index     TYPE sy-tabix.
+
+
+  LOOP AT lt_result INTO DATA(ls_res).
+
+    lv_index = sy-tabix.
+
+    ls_cellcolor-fname = 'MATERIAL_NUMBER'.
+    ls_cellcolor-color-col = sy-tabix.
+    ls_cellcolor-color-int = '1'.
+    ls_cellcolor-color-inv = '0'.
+    APPEND ls_cellcolor TO ls_res-cellcolor.
+
+    MODIFY lt_result FROM ls_res INDEX lv_index TRANSPORTING cellcolor.
+
+
+  ENDLOOP.
+
+
+ENDFORM.

@@ -1,0 +1,224 @@
+ SELECT vbeln,posnr, matnr, kwmeng, vrkme
+    FROM vbap
+    INTO TABLE @DATA(lt_vbap)
+   WHERE vbeln IN @s_vbeln.
+  IF sy-subrc = 0.
+
+    LOOP AT lt_vbap INTO DATA(ls_vbap).
+
+      CALL FUNCTION 'CONVERSION_EXIT_MATN1_OUTPUT'
+        EXPORTING
+          input  = ls_vbap-matnr
+        IMPORTING
+          output = ls_vbap-matnr.
+
+      APPEND VALUE #( converted_matnr = ls_vbap-matnr ) TO lt_display.
+
+    ENDLOOP.
+
+    cl_demo_output=>display( lt_display ).
+
+  ENDIF.
+
+ 
+Proposed Solution:
+
+To avoid LOOP and ENDLOOP for conversions, we have to do the following steps in our program.
+
+Step 1: Create a local class for the conversion routine. Based on our requirements, define one or more methods within the class. These method(s) should have a RETURNING VALUE parameter that stores the output of the method(s).
+CLASS lcl_conversion_routine DEFINITION.
+
+  PUBLIC SECTION.
+    METHODS:
+      matnr_input  IMPORTING iv_matnr        TYPE matnr
+                   RETURNING VALUE(rv_matnr) TYPE matnr,
+
+      matnr_output IMPORTING iv_matnr        TYPE matnr
+                   RETURNING VALUE(rv_matnr) TYPE matnr,
+
+      menge_output IMPORTING iv_menge        TYPE any
+                             iv_meins        TYPE meins
+                   RETURNING VALUE(rv_menge) TYPE char17,
+
+      meins_output IMPORTING iv_meins        TYPE meins
+                   RETURNING VALUE(rv_meins) TYPE meins.
+ENDCLASS.
+
+Step 2: In the method implementation, call the respective function modules by passing importing and returning parameters.
+CLASS lcl_conversion_routine IMPLEMENTATION.
+
+  METHOD matnr_input.
+
+*& Material Conversion External to Internal.
+    CALL FUNCTION 'CONVERSION_EXIT_MATN1_INPUT'
+      EXPORTING
+        input        = iv_matnr
+      IMPORTING
+        output       = rv_matnr
+      EXCEPTIONS
+        length_error = 1
+        OTHERS       = 2 ##FM_SUBRC_OK.
+
+  ENDMETHOD.
+
+  METHOD matnr_output.
+
+*& Material Conversion Internal to External.
+    CALL FUNCTION 'CONVERSION_EXIT_MATN1_OUTPUT'
+      EXPORTING
+        input  = iv_matnr
+      IMPORTING
+        output = rv_matnr ##FM_SUBRC_OK.
+
+  ENDMETHOD.
+
+  METHOD meins_output.
+
+*& Unit of Measure Internal to External Format.
+    CALL FUNCTION 'CONVERSION_EXIT_CUNIT_OUTPUT'
+      EXPORTING
+        input          = iv_meins
+      IMPORTING
+        output         = rv_meins
+      EXCEPTIONS
+        unit_not_found = 1
+        OTHERS         = 2 ##FM_SUBRC_OK.
+
+  ENDMETHOD.
+
+  METHOD menge_output.
+
+*& Quantity Internal to External Format.
+    WRITE iv_menge TO rv_menge UNIT iv_meins.
+
+  ENDMETHOD.
+
+ENDCLASS.
+
+TYPES: BEGIN OF ty_display,
+         unconverted_matnr TYPE text30,
+         converted_matnr   TYPE text30,
+         unconverted_menge TYPE text30,
+         converted_menge   TYPE text30,
+         unconverted_meins TYPE text30,
+         converted_meins   TYPE text30,
+       END OF ty_display.
+
+DATA: lt_display TYPE TABLE OF ty_display.
+
+Step 3: In this scenario, need to convert the Material, Quantity and Unit of measure to external format. Create an object for the class and call the respective methods to convert field values to external format.
+  SELECT vbeln,posnr, matnr, kwmeng, vrkme
+    FROM vbap
+    INTO TABLE @DATA(lt_vbap)
+   WHERE vbeln IN @s_vbeln.
+  IF sy-subrc = 0.
+
+    lt_display = VALUE #( LET lo_conversion = NEW lcl_conversion_routine( ) IN
+                          FOR ls_vbap IN lt_vbap
+                        ( unconverted_matnr = ls_vbap-matnr
+                          unconverted_menge = ls_vbap-kwmeng
+                          unconverted_meins = ls_vbap-vrkme
+                          converted_matnr   = lo_conversion->matnr_output( iv_matnr = ls_vbap-matnr )
+                          converted_menge   = lo_conversion->menge_output( iv_menge = ls_vbap-kwmeng
+                                                                           iv_meins = ls_vbap-vrkme )
+                          converted_meins   = lo_conversion->meins_output( iv_meins = ls_vbap-vrkme ) ) ).
+
+    lt_display = VALUE #( LET  lt_external_values = lt_display
+                               lo_conversion      = NEW lcl_conversion_routine( ) IN
+                          BASE lt_display
+                          FOR  ls_external_value IN lt_external_values
+                        ( unconverted_matnr       = ls_external_value-converted_matnr
+                          converted_matnr         = lo_conversion->matnr_input( iv_matnr = CONV matnr( ls_external_value-converted_matnr ) ) ) ).
+
+    cl_demo_output=>display( lt_display ).
+
+  ENDIF.
+
+Output of the program:
+
+
+
+
+
+Conclusion:
+
+By this way, we can use any conversion routines in the FOR syntax without calling the function modules directly. hope this will helpful.
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+SAP Managed Tags:
+ABAP Development
+abapABAP &gt 7.4S4HANAs4hana2020
+10 Comments
+former_member154614
+ former_member154614
+Explorer
+‎07-12-2023 12:44 PM
+Thankyou Saran, It's really helpful:ok_hand:
+Sandra_Rossi
+ Sandra_Rossi
+Active Contributor
+‎07-12-2023 1:48 PM
+What about making it fully generic? (conversion exit name as a parameter, only two methods, INPUT and OUTPUT)
+
+ 
+svj1010
+ svj1010
+Explorer
+‎07-13-2023 11:30 AM
+very good
+saranramu
+ saranramu
+Explorer
+‎07-14-2023 9:00 AM
+Hi Sandra,
+
+Obviously, we can make it more generic. We need to pass the function module name along with the corresponding input fields as input parameters.
+CLASS lcl_conversion_routine DEFINITION.
+
+  PUBLIC SECTION.
+    METHODS conversion IMPORTING iv_conv_exit     TYPE rs38l_fnam
+                                 iv_input         TYPE any
+                       RETURNING VALUE(ev_output) TYPE string.
+ENDCLASS.
+
+CLASS lcl_conversion_routine IMPLEMENTATION.
+  METHOD conversion.
+    CALL FUNCTION iv_conv_exit  " Function Module Name
+      EXPORTING
+        input  = iv_input       " Input
+      IMPORTING
+        output = ev_output.     " Output
+  ENDMETHOD.
+ENDCLASS.
+
+START-OF-SELECTION.
+
+  SELECT vbeln,posnr, matnr, kwmeng, vrkme
+    FROM vbap
+    INTO TABLE @DATA(lt_vbap)
+   WHERE vbeln IN @s_vbeln.
+
+  lt_display = VALUE #( LET lo_conversion = NEW lcl_conversion_routine( ) IN
+                        FOR ls_vbap IN lt_vbap
+                      ( unconverted_matnr = ls_vbap-matnr
+                        converted_matnr   = lo_conversion->conversion( iv_conv_exit = 'CONVERSION_EXIT_MATN1_OUTPUT'
+                                                                       iv_input     = ls_vbap-matnr ) ) ).
+
+
+  lt_display = VALUE #( LET  lt_external_values = lt_display
+                             lo_conversion      = NEW lcl_conversion_routine( ) IN
+                        BASE lt_display
+                        FOR  ls_external_value IN lt_external_values
+                      ( unconverted_matnr       = ls_external_value-converted_matnr
+                        converted_matnr         = lo_conversion->conversion( iv_conv_exit = 'CONVERSION_EXIT_MATN1_INPUT'
+                                                                             iv_input     = ls_external_value-converted_matnr ) ) ).
+
+  cl_demo_output=>display( lt_display ).

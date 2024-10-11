@@ -1,0 +1,92 @@
+REPORT ZINF_SELECTION.
+
+TABLES: ZINF_TYPE.
+
+DATA: lt_inf_type TYPE TABLE OF ZINF_TYPE,
+      ls_inf_type TYPE ZINF_TYPE,
+      lv_material_type TYPE ZINF_TYPE-MATERIAL_TYPE,
+      gv_action TYPE c,
+      gv_selected TYPE abap_bool.
+
+SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE text-000.
+  SELECT-OPTIONS: s_mape FOR lv_material_type,
+                 s_desn   FOR ls_inf_type-DESCRIPTION.
+
+  PARAMETERS:
+              p_r1    TYPE c RADIOBUTTON GROUP r1,
+              p_r2    TYPE c RADIOBUTTON GROUP r1,
+              p_r3    TYPE c RADIOBUTTON GROUP r1,
+              p_r4    TYPE c RADIOBUTTON GROUP r1.
+
+SELECTION-SCREEN END OF BLOCK b1.
+
+START-OF-SELECTION.
+  " Handle radio button selection
+  CASE gv_action.
+    WHEN 'C'.
+      " Create (INSERT)
+      CLEAR ls_inf_type.
+      ls_inf_type-MATERIAL_TYPE = 'Your_Value'.
+      ls_inf_type-DESCRIPTION = 'Your_Description'.
+      APPEND ls_inf_type TO lt_inf_type.
+      INSERT INTO ZINF_TYPE VALUES ls_inf_type.
+    WHEN 'R'.
+      " Read (SELECT)
+      SELECT MATERIAL_TYPE DESCRIPTION
+        INTO TABLE lt_inf_type
+        FROM ZINF_TYPE
+        WHERE MATERIAL_TYPE IN s_mape
+        AND   DESCRIPTION   IN s_desn.
+      LOOP AT lt_inf_type INTO ls_inf_type.
+        WRITE: / 'Material Type:', ls_inf_type-MATERIAL_TYPE,
+               'Description:', ls_inf_type-DESCRIPTION.
+      ENDLOOP.
+    WHEN 'U'.
+      " Update (MODIFY)
+*      LOOP AT lt_inf_type INTO ls_inf_type WHERE MATERIAL_TYPE = lv_material_type.
+*        ls_inf_type-DESCRIPTION = 'Updated_Description'.
+*        MODIFY ZINF_TYPE FROM ls_inf_type TRANSPORTING DESCRIPTION WHERE MATERIAL_TYPE = lv_material_type.
+*      ENDLOOP.
+    WHEN 'D'.
+      " Delete (DELETE)
+      LOOP AT lt_inf_type INTO ls_inf_type WHERE MATERIAL_TYPE = lv_material_type.
+        DELETE FROM ZINF_TYPE WHERE MATERIAL_TYPE = lv_material_type.
+      ENDLOOP.
+  ENDCASE.
+
+  " Your existing code for processing data goes here
+
+  " Example: Reading data from ZINF_TYPE and displaying
+  SELECT MATERIAL_TYPE DESCRIPTION
+    INTO TABLE lt_inf_type
+    FROM ZINF_TYPE.
+
+  LOOP AT lt_inf_type INTO ls_inf_type.
+    WRITE: / 'Material Type:', ls_inf_type-MATERIAL_TYPE,
+           'Description:', ls_inf_type-DESCRIPTION.
+  ENDLOOP.
+
+  " Perform the final action based on the selected radio button
+  CASE gv_action.
+    WHEN 'C'.
+      " Additional logic for the Create action
+    WHEN 'R'.
+      " Additional logic for the Read action
+    WHEN 'U'.
+      " Additional logic for the Update action
+    WHEN 'D'.
+      " Additional logic for the Delete action
+  ENDCASE.
+
+MODULE status_2000 OUTPUT.
+  " Set the selected action based on the radio button
+  IF p_r1 = abap_true.
+    gv_action = 'C'. " Create
+  ELSEIF p_r2 = abap_true.
+    gv_action = 'R'. " Read
+  ELSEIF p_r3 = abap_true.
+    gv_action = 'U'. " Update
+  ELSEIF p_r4 = abap_true.
+    gv_action = 'D'. " Delete
+  ENDIF.
+ENDMODULE.

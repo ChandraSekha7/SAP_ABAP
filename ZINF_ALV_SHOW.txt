@@ -1,0 +1,146 @@
+REPORT ZINF_ALV_SHOW.
+
+TABLES: ZINF_MATERIAL, ZINF_GROUPS, ZINF_TYPE.
+
+TYPES: BEGIN OF ty_result,
+         MATERIAL_NUMBER TYPE ZINF_MATERIAL-MATERIAL_NUMBER,
+         MATERIAL_DESCRIPTION TYPE ZINF_MATERIAL-MATERIAL_DESCRIPTION,
+         MATERIAL_GROUP TYPE ZINF_MATERIAL-MATERIAL_GROUP,
+         MATERIAL_TYPE TYPE ZINF_MATERIAL-MATERIAL_TYPE,
+         CREATED_DATE TYPE ZINF_MATERIAL-CREATED_DATE,
+         CREATED_TIME TYPE ZINF_MATERIAL-CREATED_TIME,
+         GROUP_DESCRIPTION TYPE ZINF_GROUPS-DESCRIPTION,
+         TYPE_DESCRIPTION TYPE ZINF_TYPE-DESCRIPTION,
+
+       END OF ty_result.
+
+DATA: lt_result TYPE TABLE OF ty_result.
+
+DATA:  it_alv_design TYPE slis_t_fieldcat_alv,
+      wa_alv_design TYPE slis_fieldcat_alv,
+      wa_alv_layout TYPE slis_layout_alv,
+      lt_sort_info  TYPE slis_t_sortinfo_alv,
+      ls_sort_info  TYPE slis_sortinfo_alv.
+
+
+START-OF-SELECTION.
+
+  " Fetch data from ZINF_MATERIAL, ZINF_GROUPS, and ZINF_TYPE
+  SELECT
+      m~MATERIAL_NUMBER,
+      m~MATERIAL_DESCRIPTION,
+      m~MATERIAL_GROUP,
+
+      m~MATERIAL_TYPE,
+
+      m~CREATED_DATE,
+      m~CREATED_TIME,
+      g~DESCRIPTION AS GROUP_DESCRIPTION,
+      t~DESCRIPTION AS TYPE_DESCRIPTION
+    INTO TABLE @lt_result
+    FROM ZINF_MATERIAL AS m
+    INNER JOIN ZINF_GROUPS AS g ON   m~MATERIAL_GROUP = g~MATERIAL_TYPE
+    INNER JOIN ZINF_TYPE AS t ON m~MATERIAL_TYPE = t~MATERIAL_TYPE.
+
+
+
+
+
+
+
+
+CLEAR it_alv_design.
+wa_alv_design-row_pos = 1.
+wa_alv_design-col_pos = 1.
+wa_alv_design-fieldname = 'MATERIAL_NUMBER'.
+wa_alv_design-tabname = 'IT_RESULT'.
+wa_alv_design-outputlen = '15'.
+wa_alv_design-seltext_m = 'Material Number'.
+APPEND wa_alv_design TO it_alv_design.
+
+CLEAR wa_alv_design.
+wa_alv_design-row_pos = 1.
+wa_alv_design-col_pos = 2.
+wa_alv_design-fieldname = 'MATERIAL_DESCRIPTION'.
+wa_alv_design-tabname = 'IT_RESULT'.
+wa_alv_design-outputlen = '30'.
+wa_alv_design-seltext_m = 'Material Description'.
+APPEND wa_alv_design TO it_alv_design.
+
+CLEAR wa_alv_design.
+wa_alv_design-row_pos = 1.
+wa_alv_design-col_pos = 3.
+wa_alv_design-fieldname = 'MATERIAL_GROUP'.
+wa_alv_design-tabname = 'IT_RESULT'.
+wa_alv_design-outputlen = '15'.
+wa_alv_design-seltext_m = 'Material Group'.
+APPEND wa_alv_design TO it_alv_design.
+
+CLEAR wa_alv_design.
+wa_alv_design-row_pos = 1.
+wa_alv_design-col_pos = 4.
+wa_alv_design-fieldname = 'MATERIAL_TYPE'.
+wa_alv_design-tabname = 'IT_RESULT'.
+wa_alv_design-outputlen = '20'.
+wa_alv_design-seltext_m = 'Material Type'.
+APPEND wa_alv_design TO it_alv_design.
+
+CLEAR wa_alv_design.
+wa_alv_design-row_pos = 1.
+wa_alv_design-col_pos = 5.
+wa_alv_design-fieldname = 'CREATED_DATE'.
+wa_alv_design-tabname = 'IT_RESULT'.
+wa_alv_design-outputlen = '20'.
+wa_alv_design-seltext_m = 'Created Date'.
+APPEND wa_alv_design TO it_alv_design.
+
+CLEAR wa_alv_design.
+wa_alv_design-row_pos = 1.
+wa_alv_design-col_pos = 6.
+wa_alv_design-fieldname = 'CREATED_TIME'.
+wa_alv_design-tabname = 'IT_RESULT'.
+wa_alv_design-outputlen = '30'.
+wa_alv_design-seltext_m = 'Created Time'.
+APPEND wa_alv_design TO it_alv_design.
+
+CLEAR wa_alv_design.
+wa_alv_design-row_pos = 1.
+wa_alv_design-col_pos = 7.
+wa_alv_design-fieldname = 'GROUP_DESCRIPTION'.
+wa_alv_design-tabname = 'IT_RESULT'.
+wa_alv_design-outputlen = '40'.
+wa_alv_design-seltext_m = 'Group Description'.
+APPEND wa_alv_design TO it_alv_design.
+
+CLEAR wa_alv_design.
+wa_alv_design-row_pos = 1.
+wa_alv_design-col_pos = 8.
+wa_alv_design-fieldname = ' TYPE_DESCRIPTION'.
+wa_alv_design-tabname = ' IT_RESULT'.
+wa_alv_design-outputlen = '50'.
+wa_alv_design-seltext_m = 'Type Description'.
+APPEND wa_alv_design TO it_alv_design.
+
+wa_alv_layout-zebra = 'X'.
+
+" Add sorting information
+CLEAR ls_sort_info.
+ls_sort_info-fieldname = 'MATERIAL_NUMBER'.
+ls_sort_info-up = 'X'. " Ascending
+APPEND ls_sort_info TO lt_sort_info.
+*    Display the results using WRITE statements
+
+
+
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+  EXPORTING
+*     i_structure_name = 'IT_RESULT'
+    it_fieldcat        = it_alv_design
+    is_layout          = wa_alv_layout
+    it_sort            = lt_sort_info " Add sorting information
+  TABLES
+    t_outtab           = lt_result
+  EXCEPTIONS
+    program_error      = 1
+    others             = 2.
+CHECK sy-subrc <> 0.

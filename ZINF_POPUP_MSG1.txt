@@ -1,0 +1,194 @@
+REPORT zinf_popup_msg.
+
+TYPE-POOLS: slis.
+TABLES: zinf_material.
+
+DATA: lt_result     TYPE TABLE OF zinf_material,
+      lt_fieldcat   TYPE slis_t_fieldcat_alv,
+      lo_alv        TYPE REF TO cl_gui_alv_grid,
+      wa_alv_layout TYPE slis_layout_alv.
+
+START-OF-SELECTION.
+  " Fetch all records
+  PERFORM f_fetch_all_material_data.
+
+  " Display the ALV report
+  PERFORM f_display_alv_report.
+
+FORM f_fetch_all_material_data.
+  CLEAR lt_result.
+  SELECT * FROM zinf_material INTO TABLE lt_result.
+ENDFORM.
+
+FORM f_display_alv_report.
+  DATA: lt_sort_info TYPE slis_t_sortinfo_alv.
+
+  " Check if data is fetched
+  IF lt_result IS NOT INITIAL.
+
+    " Build field catalog
+    PERFORM f_build_field_catalog.
+
+    " Build layout
+    PERFORM f_build_layout.
+
+    " Display ALV Grid
+    CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+      EXPORTING
+        i_callback_program      = sy-repid
+        it_fieldcat             = lt_fieldcat
+        is_layout               = wa_alv_layout
+        i_callback_user_command = 'HANDLE_USER_COMMAND'
+      TABLES
+        t_outtab                = lt_result.
+
+  ELSE.
+    WRITE: / 'No data found.'.
+  ENDIF.
+ENDFORM.
+
+
+
+
+
+
+
+
+
+
+FORM handle_user_command USING r_ucomm LIKE sy-ucomm
+                              rs_selfield TYPE slis_selfield.
+
+  DATA: lv_material_number      TYPE string,
+        lv_material_description TYPE string,
+        lv_material_group       TYPE string,
+        lv_material_type        TYPE string,
+        lv_created_date         TYPE string,
+        lv_created_time         TYPE string,
+        lv_info_message         TYPE string.
+
+  CASE rs_selfield-fieldname.
+    WHEN 'MATERIAL_NUMBER'.
+      CASE r_ucomm.
+        WHEN '&IC1'.
+          lv_material_number = rs_selfield-value.
+
+          IF lv_material_number IS NOT INITIAL.
+            CONCATENATE 'Material Number: ' lv_material_number ':selected' lv_material_description
+                        INTO lv_info_message.
+
+            MESSAGE lv_info_message TYPE 'I'.
+          ENDIF.
+
+        WHEN ''.
+          MESSAGE 'Empty User Command for Material Number' TYPE 'W'.
+        WHEN OTHERS.
+          MESSAGE 'Unexpected User Command for Material Number' TYPE 'E'.
+      ENDCASE.
+
+    WHEN 'MATERIAL_DESCRIPTION'.
+      CASE r_ucomm.
+        WHEN '&IC1'.
+          lv_material_description = rs_selfield-value.
+
+          IF lv_material_description IS NOT INITIAL.
+            CONCATENATE 'Material Description: ' lv_material_description':selected'
+                        INTO lv_info_message.
+
+            MESSAGE lv_info_message TYPE 'I'.
+          ENDIF.
+
+        WHEN ''.
+          MESSAGE 'Empty User Command for Material Description' TYPE 'W'.
+        WHEN OTHERS.
+          MESSAGE 'Unexpected User Command for Material Description' TYPE 'E'.
+      ENDCASE.
+
+    WHEN 'MATERIAL_GROUP'.
+      CASE r_ucomm.
+        WHEN '&IC1'.
+          lv_material_group = rs_selfield-value.
+
+          IF lv_material_group IS NOT INITIAL.
+            CONCATENATE 'Material group: ' lv_material_group 'SUCESSFUL'
+                        INTO lv_info_message.
+
+            MESSAGE lv_info_message TYPE 'S'. " Change 'I' to 'S' for success message.
+          ENDIF.
+
+        WHEN ''.
+          MESSAGE 'Empty User Command for Material Group' TYPE 'W'.
+        WHEN OTHERS.
+          MESSAGE 'Unexpected User Command for Material Group' TYPE 'E'.
+      ENDCASE.
+
+    WHEN 'MATERIAL_TYPE'.
+      CASE r_ucomm.
+        WHEN '&IC1'.
+          lv_material_type = rs_selfield-value.
+
+          IF lv_material_type IS NOT INITIAL.
+            MESSAGE 'WARN MESSAGE:No action for this field,warning message' TYPE 'W'.
+          ENDIF.
+
+        WHEN ''.
+          MESSAGE 'Empty User Command for Material Type' TYPE 'W'.
+        WHEN OTHERS.
+          MESSAGE 'Unexpected User Command for Material Type' TYPE 'E'.
+      ENDCASE.
+
+    WHEN 'CREATED_DATE'.
+      CASE r_ucomm.
+        WHEN '&IC1'.
+          lv_created_date = rs_selfield-value.
+
+          IF lv_created_date IS  INITIAL.
+            MESSAGE 'Clicked field is empty,warning message' TYPE 'W'.
+          ELSE.
+            MESSAGE 'ERROR MESSAGE:ACTION NOT ALLOWED' TYPE 'E'.
+          ENDIF.
+
+        WHEN ''.
+          MESSAGE 'Empty User Command for Created Date' TYPE 'W'.
+        WHEN OTHERS.
+          MESSAGE 'Unexpected User Command for Created Date' TYPE 'E'.
+      ENDCASE.
+
+    WHEN 'CREATED_TIME'.
+      CASE r_ucomm.
+        WHEN '&IC1'.
+          lv_created_time = rs_selfield-value.
+
+          IF lv_created_time IS NOT INITIAL.
+            MESSAGE 'Program will abort' TYPE 'A'.
+          ELSE.
+            MESSAGE 'Field is empty error msg' TYPE 'E'.
+          ENDIF.
+
+        WHEN ''.
+          MESSAGE 'Empty User Command for Created Time' TYPE 'W'.
+        WHEN OTHERS.
+          MESSAGE 'Unexpected User Command for Created Time' TYPE 'E'.
+      ENDCASE.
+  ENDCASE.
+ENDFORM.
+
+
+FORM f_build_field_catalog.
+  CLEAR lt_fieldcat.
+
+  " Add field catalog entries here based on your requirements
+  APPEND VALUE #( fieldname = 'MATERIAL_NUMBER' seltext_m = 'Material Number' outputlen = 20 ) TO lt_fieldcat.
+  APPEND VALUE #( fieldname = 'MATERIAL_DESCRIPTION' seltext_m = 'Material Description' outputlen = 40 ) TO lt_fieldcat.
+  APPEND VALUE #( fieldname = 'MATERIAL_GROUP' seltext_m = 'Material Group' outputlen = 25 ) TO lt_fieldcat.
+  APPEND VALUE #( fieldname = 'MATERIAL_TYPE' seltext_m = 'Material Type' outputlen = 25 ) TO lt_fieldcat.
+  APPEND VALUE #( fieldname = 'CREATED_DATE' seltext_m = 'Created Date' outputlen = 25 ) TO lt_fieldcat.
+  APPEND VALUE #( fieldname = 'CREATED_TIME' seltext_m = 'Created Time' outputlen = 25 ) TO lt_fieldcat.
+ENDFORM.
+
+
+FORM f_build_layout.
+  CLEAR wa_alv_layout.
+  " Define layout settings based on your requirements
+  wa_alv_layout-zebra = 'X'.
+ENDFORM.

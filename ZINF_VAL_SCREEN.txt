@@ -1,0 +1,65 @@
+REPORT ZINF_VAL_SCREEN.
+
+TABLES: ZINF_MATERIAL.
+
+TYPES: BEGIN OF ty_material,
+         MATERIAL_NUMBER TYPE ZINF_MATERIAL-MATERIAL_NUMBER,
+         MATERIAL_DESCRIPTION TYPE ZINF_MATERIAL-MATERIAL_DESCRIPTION,
+         MATERIAL_GROUP TYPE ZINF_MATERIAL-MATERIAL_GROUP,
+         MATERIAL_TYPE TYPE ZINF_MATERIAL-MATERIAL_TYPE,
+         CREATED_DATE TYPE ZINF_MATERIAL-CREATED_DATE,
+         CREATED_TIME TYPE ZINF_MATERIAL-CREATED_TIME,
+       END OF ty_material.
+
+DATA: lt_materials TYPE TABLE OF ty_material,
+      ls_material   TYPE ty_material.
+
+DATA: gv_matnr TYPE ZINF_MATERIAL-MATERIAL_NUMBER,
+      gv_show TYPE abap_bool VALUE abap_true.
+
+SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE text-001.
+PARAMETERS: p_matnr TYPE ZINF_MATERIAL-MATERIAL_NUMBER OBLIGATORY,
+            p_show TYPE abap_bool AS CHECKBOX DEFAULT abap_true,
+            p_group AS CHECKBOX,
+            p_type AS CHECKBOX.
+SELECTION-SCREEN END OF BLOCK b1.
+
+AT SELECTION-SCREEN OUTPUT.
+  LOOP AT SCREEN.
+    CASE SCREEN-GROUP1.
+      WHEN 'GROUP_TYPE_LISTBOX'.
+        SCREEN-ACTIVE = gv_show.
+        MODIFY SCREEN.
+      WHEN 'CHECKBOX_GROUP'.
+        SCREEN-ACTIVE = gv_show.
+        MODIFY SCREEN.
+    ENDCASE.
+  ENDLOOP.
+
+AT SELECTION-SCREEN.
+  IF p_group = ' ' AND p_type = ' '.
+    MESSAGE 'Please select at least one checkbox (p_group or p_type).' TYPE 'E'.
+  ENDIF.
+
+START-OF-SELECTION.
+  " Fetch all material numbers
+  SELECT MATERIAL_NUMBER FROM ZINF_MATERIAL INTO TABLE @DATA(lt_material_numbers).
+
+  " Fetch selected material details
+  SELECT * FROM ZINF_MATERIAL
+    INTO CORRESPONDING FIELDS OF TABLE @lt_materials
+    WHERE MATERIAL_NUMBER = @p_matnr.
+
+  LOOP AT lt_materials INTO ls_material.
+*    IF ( ls_material-MATERIAL_GROUP = 'X' AND p_group = 'X' ) OR
+*       ( ls_material-MATERIAL_TYPE = 'X' AND p_type = 'X' ) OR
+*       ( p_group = ' ' AND p_type = ' ' ).
+      WRITE: / 'Material Number:', ls_material-MATERIAL_NUMBER,
+             / 'Material Description:', ls_material-MATERIAL_DESCRIPTION,
+             / 'Material Group:', ls_material-MATERIAL_GROUP,
+             / 'Material Type:', ls_material-MATERIAL_TYPE,
+             / 'Created Date:', ls_material-CREATED_DATE,
+             / 'Created Time:', ls_material-CREATED_TIME,
+             / '---------------------'.
+*    ENDIF.
+  ENDLOOP.
